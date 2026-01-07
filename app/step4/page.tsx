@@ -1,10 +1,31 @@
+"use client"
+
+import { useState, useEffect } from "react"
 import Link from "next/link"
 import { Button } from "@/components/ui/button"
 import { Card } from "@/components/ui/card"
 import { Progress } from "@/components/ui/progress"
-import { Plane, GraduationCap, Calendar, TrendingUp, CheckCircle2, Lightbulb } from "lucide-react"
+import { Plane, GraduationCap, Calendar, TrendingUp, CheckCircle2, Lightbulb, Wallet } from "lucide-react"
 
 export default function Step4Page() {
+  const [availableSavings, setAvailableSavings] = useState(0)
+  const [monthlyExpenses, setMonthlyExpenses] = useState(33000)
+  const [emergencyTarget, setEmergencyTarget] = useState(0)
+
+  // 從 localStorage 讀取數據
+  useEffect(() => {
+    const saved = localStorage.getItem("availableSavings")
+    if (saved) {
+      setAvailableSavings(parseFloat(saved) || 0)
+    }
+    // 計算緊急預備金目標（假設是 6 個月支出）
+    const expenses = 33000 // 這裡應該從 step2 或 step3 計算得出
+    setMonthlyExpenses(expenses)
+    setEmergencyTarget(expenses * 6)
+  }, [])
+
+  // 計算可用於夢想的金額（可動用存款 - 緊急預備金需求）
+  const remainingForDreams = Math.max(0, availableSavings - emergencyTarget)
   const savingsPlans = [
     {
       name: "日本家庭旅遊",
@@ -40,6 +61,20 @@ export default function Step4Page() {
             願望就不會擠壓生活費。
           </p>
         </div>
+
+        {/* Available for Dreams */}
+        {remainingForDreams > 0 && (
+          <Card className="p-4 md:p-6 bg-gradient-to-br from-primary/10 to-accent/10 border-primary/20 mb-6">
+            <div className="flex items-center gap-3">
+              <Wallet className="w-5 h-5 text-primary" />
+              <div>
+                <p className="text-sm text-muted-foreground">可用於夢想規劃的金額</p>
+                <p className="text-xl font-bold text-primary">NT$ {remainingForDreams.toLocaleString()}</p>
+                <p className="text-xs text-muted-foreground mt-1">（已優先滿足緊急預備金需求）</p>
+              </div>
+            </div>
+          </Card>
+        )}
 
         {/* Savings Plans */}
         <div className="space-y-6 mb-8">
@@ -91,7 +126,7 @@ export default function Step4Page() {
                   <div className="p-4 rounded-lg bg-primary/10 backdrop-blur border border-primary/20">
                     <div className="flex items-center gap-1 mb-1">
                       <TrendingUp className="w-3 h-3 text-primary" />
-                      <p className="text-xs text-primary font-medium">建議每月存</p>
+                      <p className="text-xs text-primary font-medium">每個月需存</p>
                     </div>
                     <p className="text-lg font-bold text-primary">NT$ {plan.monthlySaving.toLocaleString()}</p>
                   </div>

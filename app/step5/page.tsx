@@ -1,15 +1,33 @@
+"use client"
+
+import { useState, useEffect } from "react"
 import Link from "next/link"
 import { Button } from "@/components/ui/button"
 import { Card } from "@/components/ui/card"
 import { Progress } from "@/components/ui/progress"
-import { Shield, Umbrella, Heart, AlertCircle, CheckCircle2, PiggyBank } from "lucide-react"
+import { Shield, Umbrella, Heart, AlertCircle, CheckCircle2, PiggyBank, Wallet } from "lucide-react"
 
 export default function Step5Page() {
+  const [availableSavings, setAvailableSavings] = useState(0)
   const monthlyExpenses = 33000
   const recommendedMonths = 6
   const targetAmount = monthlyExpenses * recommendedMonths
-  const currentAmount = 80000
-  const progress = (currentAmount / targetAmount) * 100
+
+  // 從 localStorage 讀取可動用存款金額
+  useEffect(() => {
+    const saved = localStorage.getItem("availableSavings")
+    if (saved) {
+      setAvailableSavings(parseFloat(saved) || 0)
+    }
+  }, [])
+
+  // 計算邏輯：優先滿足緊急預備金
+  // 如果可動用存款 >= 目標，則已滿足緊急預備金，剩餘的可用於夢想
+  // 如果可動用存款 < 目標，則可動用存款全部用於緊急預備金
+  const allocatedToEmergency = Math.min(availableSavings, targetAmount)
+  const remainingForDreams = Math.max(0, availableSavings - targetAmount)
+  const stillNeeded = Math.max(0, targetAmount - availableSavings)
+  const progress = targetAmount > 0 ? (allocatedToEmergency / targetAmount) * 100 : 0
 
   const scenarios = [
     { icon: Heart, title: "突然生病住院", description: "醫療費用、暫時無法工作" },
@@ -63,12 +81,23 @@ export default function Step5Page() {
             </div>
           </div>
 
+          {/* Available Savings Info */}
+          {availableSavings > 0 && (
+            <div className="mb-4 p-4 rounded-lg bg-card/60 backdrop-blur border border-primary/20">
+              <div className="flex items-center gap-2 mb-2">
+                <Wallet className="w-4 h-4 text-primary" />
+                <span className="text-sm font-medium text-foreground">可動用存款金額</span>
+              </div>
+              <p className="text-lg font-semibold text-primary">NT$ {availableSavings.toLocaleString()}</p>
+            </div>
+          )}
+
           {/* Progress */}
           <div className="mb-6">
             <div className="flex justify-between items-center mb-2">
               <span className="text-sm text-muted-foreground">目前進度</span>
               <span className="text-sm font-medium text-foreground">
-                NT$ {currentAmount.toLocaleString()} / NT$ {targetAmount.toLocaleString()}
+                NT$ {allocatedToEmergency.toLocaleString()} / NT$ {targetAmount.toLocaleString()}
               </span>
             </div>
             <Progress value={progress} className="h-3 mb-1" />
@@ -87,9 +116,35 @@ export default function Step5Page() {
             </div>
             <div className="p-4 rounded-lg bg-primary/10 backdrop-blur border border-primary/20">
               <p className="text-xs text-primary font-medium mb-1">還需要</p>
-              <p className="text-lg font-bold text-primary">NT$ {(targetAmount - currentAmount).toLocaleString()}</p>
+              <p className="text-lg font-bold text-primary">NT$ {stillNeeded.toLocaleString()}</p>
             </div>
           </div>
+
+          {/* Remaining for Dreams */}
+          {remainingForDreams > 0 ? (
+            <div className="mt-4 p-4 rounded-lg bg-accent/30 border border-accent">
+              <div className="flex items-center gap-2 mb-2">
+                <Heart className="w-4 h-4 text-primary" />
+                <span className="text-sm font-medium text-foreground">可用於夢想規劃</span>
+              </div>
+              <p className="text-lg font-semibold text-primary">
+                NT$ {remainingForDreams.toLocaleString()}
+              </p>
+              <p className="text-xs text-muted-foreground mt-1">
+                緊急預備金已滿足，剩餘金額可用於實現您的夢想
+              </p>
+            </div>
+          ) : availableSavings > 0 && stillNeeded > 0 ? (
+            <div className="mt-4 p-4 rounded-lg bg-orange-50 border border-orange-200">
+              <div className="flex items-center gap-2 mb-2">
+                <AlertCircle className="w-4 h-4 text-orange-600" />
+                <span className="text-sm font-medium text-foreground">優先建議</span>
+              </div>
+              <p className="text-sm text-muted-foreground">
+                您的可動用存款已優先分配給緊急預備金，建議先補足緊急預備金缺口後，再規劃夢想儲蓄。
+              </p>
+            </div>
+          ) : null}
         </Card>
 
         {/* Important Notes */}

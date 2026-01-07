@@ -13,6 +13,7 @@ interface Wish {
   id: string
   name: string
   cost: string
+  year: string
   month: string
   icon: string
 }
@@ -27,13 +28,14 @@ const iconMap = {
 }
 
 export default function Step1Page() {
+  const currentYear = new Date().getFullYear()
   const [wishes, setWishes] = useState<Wish[]>([
-    { id: "1", name: "日本家庭旅遊", cost: "150000", month: "8", icon: "travel" },
-    { id: "2", name: "孩子才藝課程", cost: "30000", month: "3", icon: "education" },
+    { id: "1", name: "日本家庭旅遊", cost: "150000", year: currentYear.toString(), month: "8", icon: "travel" },
+    { id: "2", name: "孩子才藝課程", cost: "30000", year: currentYear.toString(), month: "3", icon: "education" },
   ])
 
   const addWish = () => {
-    setWishes([...wishes, { id: Date.now().toString(), name: "", cost: "", month: "", icon: "other" }])
+    setWishes([...wishes, { id: Date.now().toString(), name: "", cost: "", year: currentYear.toString(), month: "", icon: "other" }])
   }
 
   const removeWish = (id: string) => {
@@ -50,7 +52,7 @@ export default function Step1Page() {
         {/* Header */}
         <div className="mb-8">
           <h1 className="text-3xl md:text-5xl font-bold text-foreground mb-4 text-balance">
-            今年，你想為家人做哪些事？
+            您與家人有那些夢想？
           </h1>
           <p className="text-lg text-muted-foreground leading-relaxed text-pretty">
             不管是旅遊、家電、紅包、孩子用品
@@ -114,7 +116,7 @@ export default function Step1Page() {
                   </div>
 
                   {/* Form Fields */}
-                  <div className="flex-1 grid gap-4 md:grid-cols-3">
+                  <div className="flex-1 grid gap-4 md:grid-cols-4">
                     <div className="md:col-span-1">
                       <Label htmlFor={`name-${wish.id}`} className="text-sm text-muted-foreground mb-2 block">
                         願望名稱
@@ -144,8 +146,25 @@ export default function Step1Page() {
                       </div>
                     </div>
                     <div>
+                      <Label htmlFor={`year-${wish.id}`} className="text-sm text-muted-foreground mb-2 block">
+                        完成年度
+                      </Label>
+                      <Select value={wish.year} onValueChange={(value) => updateWish(wish.id, "year", value)}>
+                        <SelectTrigger id={`year-${wish.id}`} className="rounded-lg">
+                          <SelectValue placeholder="選擇年度" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {Array.from({ length: 10 }, (_, i) => currentYear + i).map((year) => (
+                            <SelectItem key={year} value={year.toString()}>
+                              {year} 年
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div>
                       <Label htmlFor={`month-${wish.id}`} className="text-sm text-muted-foreground mb-2 block">
-                        希望完成月份
+                        完成月份
                       </Label>
                       <Select value={wish.month} onValueChange={(value) => updateWish(wish.id, "month", value)}>
                         <SelectTrigger id={`month-${wish.id}`} className="rounded-lg">

@@ -1,20 +1,222 @@
+"use client"
+
+import { useState, useEffect } from "react"
 import Link from "next/link"
 import { Button } from "@/components/ui/button"
 import { Card } from "@/components/ui/card"
 import { Progress } from "@/components/ui/progress"
-import { CheckCircle2, DollarSign, TrendingUp, Calendar, Sparkles } from "lucide-react"
+import { CheckCircle2, DollarSign, TrendingUp, Calendar, Sparkles, Wallet } from "lucide-react"
 
 export default function Step3Page() {
-  // Mock calculation results
-  const monthlyIncome = 45000
-  const monthlyFixedExpenses = 28000
-  const flexibleAmount = 12000
-  const yearlyExpensesMonthly = 5000
+  const [availableSavings, setAvailableSavings] = useState(0)
+  const [monthlyIncome, setMonthlyIncome] = useState(0)
+  const [monthlyFixedExpenses, setMonthlyFixedExpenses] = useState(0)
+  const [monthlyVariableExpenses, setMonthlyVariableExpenses] = useState(0)
+  const [flexibleAmount, setFlexibleAmount] = useState(0)
+  const [feasibleWishes, setFeasibleWishes] = useState<any[]>([])
+  const [isLoading, setIsLoading] = useState(true)
 
-  const feasibleWishes = [
-    { name: "孩子才藝課程", amount: 30000, month: 3 },
-    { name: "日本家庭旅遊", amount: 150000, month: 8, needsSaving: true },
-  ]
+  useEffect(() => {
+    // 確保在客戶端執行
+    if (typeof window === "undefined") {
+      return
+    }
+    
+    // 從 localStorage 讀取 step2 的數據
+    const loadData = () => {
+      const step2DataStr = localStorage.getItem("step2Data")
+      console.log("Step3: step2DataStr", step2DataStr)
+      
+      if (!step2DataStr) {
+        console.log("Step3: No data found")
+        setIsLoading(false)
+        return
+      }
+      
+      try {
+        const step2Data = JSON.parse(step2DataStr)
+        console.log("Step3: Parsed data", step2Data)
+      
+      // 可動用儲蓄
+      const savings = parseFloat(step2Data.availableSavings || "0")
+      setAvailableSavings(savings)
+
+      // 計算總收入
+      const fixedIncome = step2Data.fixedIncome || {}
+      const variableIncome = step2Data.variableIncome || {}
+      const businessIncome = step2Data.hasBusiness ? (step2Data.businessIncome || {}) : {}
+      
+      const totalFixedIncome = 
+        parseFloat(fixedIncome.salary || "0") +
+        parseFloat(fixedIncome.rent || "0") +
+        parseFloat(fixedIncome.investment || "0") +
+        parseFloat(fixedIncome.pension || "0") +
+        parseFloat(fixedIncome.governmentSubsidy || "0")
+      
+      const totalVariableIncome =
+        parseFloat(variableIncome.sideJob || "0") +
+        parseFloat(variableIncome.temporaryWork || "0") +
+        parseFloat(variableIncome.interest || "0") +
+        parseFloat(variableIncome.gift || "0") +
+        parseFloat(variableIncome.other || "0")
+      
+      const totalBusinessIncome = step2Data.hasBusiness
+        ? parseFloat(businessIncome.productSales || "0") +
+          parseFloat(businessIncome.serviceIncome || "0") +
+          parseFloat(businessIncome.equipmentSale || "0") +
+          parseFloat(businessIncome.venueRental || "0") +
+          parseFloat(businessIncome.partnership || "0") +
+          parseFloat(businessIncome.other || "0")
+        : 0
+      
+      const totalIncome = totalFixedIncome + totalVariableIncome + totalBusinessIncome
+      setMonthlyIncome(totalIncome)
+
+      // 計算總支出
+      const fixedExpenses = step2Data.fixedExpenses || {}
+      const variableExpenses = step2Data.variableExpenses || {}
+      const businessVariableExpenses = step2Data.hasBusiness ? (step2Data.businessVariableExpenses || {}) : {}
+      const businessFixedExpenses = step2Data.hasBusiness ? (step2Data.businessFixedExpenses || {}) : {}
+      const businessExtraExpenses = step2Data.hasBusiness ? (step2Data.businessExtraExpenses || {}) : {}
+      
+      const totalFixedExpenses =
+        parseFloat(fixedExpenses.housing || "0") +
+        parseFloat(fixedExpenses.telecom || "0") +
+        parseFloat(fixedExpenses.repayment || "0") +
+        parseFloat(fixedExpenses.insurance || "0") +
+        parseFloat(fixedExpenses.savings || "0")
+      
+      const totalVariableExpenses =
+        parseFloat(variableExpenses.food || "0") +
+        parseFloat(variableExpenses.clothing || "0") +
+        parseFloat(variableExpenses.transportation || "0") +
+        parseFloat(variableExpenses.education || "0") +
+        parseFloat(variableExpenses.entertainment || "0") +
+        parseFloat(variableExpenses.medical || "0") +
+        parseFloat(variableExpenses.other || "0")
+      
+      const totalBusinessVariableExpenses = step2Data.hasBusiness
+        ? parseFloat(businessVariableExpenses.materials || "0") +
+          parseFloat(businessVariableExpenses.packaging || "0") +
+          parseFloat(businessVariableExpenses.supplies || "0") +
+          parseFloat(businessVariableExpenses.shipping || "0") +
+          parseFloat(businessVariableExpenses.other || "0")
+        : 0
+      
+      const totalBusinessFixedExpenses = step2Data.hasBusiness
+        ? parseFloat(businessFixedExpenses.rent || "0") +
+          parseFloat(businessFixedExpenses.personnel || "0") +
+          parseFloat(businessFixedExpenses.utilities || "0") +
+          parseFloat(businessFixedExpenses.gas || "0") +
+          parseFloat(businessFixedExpenses.communication || "0") +
+          parseFloat(businessFixedExpenses.repayment || "0") +
+          parseFloat(businessFixedExpenses.other || "0")
+        : 0
+      
+      const totalBusinessExtraExpenses = step2Data.hasBusiness
+        ? parseFloat(businessExtraExpenses.equipment || "0") +
+          parseFloat(businessExtraExpenses.repair || "0") +
+          parseFloat(businessExtraExpenses.marketing || "0") +
+          parseFloat(businessExtraExpenses.other || "0")
+        : 0
+      
+      const totalBusinessExpenses = totalBusinessVariableExpenses + totalBusinessFixedExpenses + totalBusinessExtraExpenses
+      
+      setMonthlyFixedExpenses(totalFixedExpenses + totalBusinessFixedExpenses)
+      setMonthlyVariableExpenses(totalVariableExpenses + totalBusinessVariableExpenses + totalBusinessExtraExpenses)
+      
+      // 計算可彈性運用金額
+      const totalExpenses = totalFixedExpenses + totalVariableExpenses + totalBusinessExpenses
+      const flexible = totalIncome - totalExpenses
+      const calculatedFlexibleAmount = Math.max(0, flexible)
+      setFlexibleAmount(calculatedFlexibleAmount)
+
+      // 從 localStorage 讀取願望數據
+      const wishesStr = localStorage.getItem("wishes")
+      if (wishesStr) {
+        const wishes = JSON.parse(wishesStr)
+        const currentYear = new Date().getFullYear()
+        const currentMonth = new Date().getMonth() + 1
+        
+        const wishesWithStatus = wishes.map((wish: any) => {
+          const targetYear = parseInt(wish.year || currentYear.toString())
+          const targetMonth = parseInt(wish.month || "12")
+          const cost = parseFloat(wish.cost || "0")
+          
+          // 計算剩餘月數
+          let monthsRemaining = 0
+          if (targetYear > currentYear) {
+            monthsRemaining = (targetYear - currentYear - 1) * 12 + (12 - currentMonth) + targetMonth
+          } else if (targetYear === currentYear) {
+            monthsRemaining = Math.max(0, targetMonth - currentMonth)
+          } else {
+            monthsRemaining = 0 // 已過期
+          }
+          
+          // 判斷是否需要儲蓄（如果成本大於可彈性運用金額，需要儲蓄）
+          const needsSaving = cost > calculatedFlexibleAmount
+          
+          return {
+            name: wish.name,
+            amount: cost,
+            month: targetMonth,
+            year: targetYear,
+            monthsRemaining: Math.max(0, monthsRemaining),
+            needsSaving,
+          }
+        })
+        
+        setFeasibleWishes(wishesWithStatus)
+      }
+      
+      setIsLoading(false)
+      } catch (error) {
+        console.error("Step3: Error parsing data", error)
+        setIsLoading(false)
+      }
+    }
+    
+    // 立即載入數據
+    loadData()
+    
+    // 添加一個小延遲，確保數據已保存
+    const timer = setTimeout(() => {
+      loadData()
+    }, 100)
+    
+    // 監聽 localStorage 變化（當從 step2 導航過來時）
+    const handleStorageChange = (e: StorageEvent) => {
+      if (e.key === "step2Data") {
+        loadData()
+      }
+    }
+    
+    window.addEventListener("storage", handleStorageChange)
+    
+    // 也監聽自定義事件（同頁面內的變化）
+    const handleCustomStorage = () => {
+      loadData()
+    }
+    window.addEventListener("step2DataUpdated", handleCustomStorage)
+    
+    return () => {
+      clearTimeout(timer)
+      window.removeEventListener("storage", handleStorageChange)
+      window.removeEventListener("step2DataUpdated", handleCustomStorage)
+    }
+  }, [])
+
+  if (isLoading) {
+    return (
+      <main className="min-h-screen bg-gradient-to-b from-background to-accent/20">
+        <div className="container mx-auto px-4 py-8 md:py-12 max-w-4xl">
+          <div className="text-center">
+            <p className="text-muted-foreground">載入中...</p>
+          </div>
+        </div>
+      </main>
+    )
+  }
 
   return (
     <main className="min-h-screen bg-gradient-to-b from-background to-accent/20">
@@ -29,6 +231,21 @@ export default function Step3Page() {
         </div>
 
         <div className="space-y-6">
+          {/* Available Savings */}
+          {availableSavings > 0 && (
+            <Card className="p-6 md:p-8 bg-gradient-to-br from-primary/10 to-accent/10 border-primary/20">
+              <div className="flex items-center gap-4">
+                <div className="w-16 h-16 rounded-full bg-primary/20 flex items-center justify-center flex-shrink-0">
+                  <Wallet className="w-8 h-8 text-primary" />
+                </div>
+                <div className="flex-1">
+                  <p className="text-sm text-muted-foreground mb-1">目前我可動用的存款金額</p>
+                  <p className="text-3xl font-bold text-primary">NT$ {availableSavings.toLocaleString()}</p>
+                </div>
+              </div>
+            </Card>
+          )}
+
           {/* Financial Overview */}
           <Card className="p-6 md:p-8 bg-gradient-to-br from-primary/10 to-secondary/10 border-primary/20">
             <div className="grid md:grid-cols-3 gap-6">
@@ -43,9 +260,9 @@ export default function Step3Page() {
                 <div className="w-16 h-16 rounded-full bg-secondary/50 flex items-center justify-center mx-auto mb-3">
                   <TrendingUp className="w-8 h-8 text-primary" />
                 </div>
-                <p className="text-sm text-muted-foreground mb-1">固定支出（含年度平均）</p>
+                <p className="text-sm text-muted-foreground mb-1">每月總支出</p>
                 <p className="text-2xl font-bold text-foreground">
-                  NT$ {(monthlyFixedExpenses + yearlyExpensesMonthly).toLocaleString()}
+                  NT$ {(monthlyFixedExpenses + monthlyVariableExpenses).toLocaleString()}
                 </p>
               </div>
               <div className="text-center">
@@ -67,20 +284,25 @@ export default function Step3Page() {
               <div>
                 <h2 className="text-xl font-semibold text-foreground mb-2">目前狀況說明</h2>
                 <div className="space-y-3 text-muted-foreground leading-relaxed">
+                  {availableSavings > 0 && (
+                    <p>
+                      您目前可動用的存款金額為{" "}
+                      <span className="font-semibold text-primary">NT$ {availableSavings.toLocaleString()}</span>，
+                      <br />
+                      這筆金額將優先分配給緊急預備金，剩餘部分可用於夢想規劃。
+                    </p>
+                  )}
                   <p>
                     目前你的固定支出已預留完成，
                     <br />
                     每月約有 <span className="font-semibold text-primary">NT$ {flexibleAmount.toLocaleString()}</span>{" "}
                     可以彈性運用。
                   </p>
-                  <p>
-                    若想在 8 月完成日本旅遊，
-                    <br />
-                    建議每月儲蓄 <span className="font-semibold text-primary">NT$ 6,000</span>。
-                  </p>
-                  <p className="text-sm bg-accent/30 p-4 rounded-lg">
-                    💡 這樣算下來，你還有約 NT$ 6,000 可以用在生活開銷和小額願望上，不會感到太緊繃。
-                  </p>
+                  {feasibleWishes.length > 0 && (
+                    <p className="text-sm bg-accent/30 p-4 rounded-lg">
+                      💡 根據您的願望清單，系統會自動計算每個願望的儲蓄計畫，幫助您達成目標。
+                    </p>
+                  )}
                 </div>
               </div>
             </div>
@@ -99,7 +321,8 @@ export default function Step3Page() {
                     <div>
                       <h3 className="font-medium text-foreground mb-1">{wish.name}</h3>
                       <p className="text-sm text-muted-foreground">
-                        目標金額：NT$ {wish.amount.toLocaleString()} | 完成時間：{wish.month} 月
+                        目標金額：NT$ {wish.amount.toLocaleString()} | 完成時間：{wish.year} 年 {wish.month} 月
+                        {wish.monthsRemaining > 0 && ` (剩餘 ${wish.monthsRemaining} 個月)`}
                       </p>
                     </div>
                     {!wish.needsSaving && (
@@ -111,8 +334,15 @@ export default function Step3Page() {
                   </div>
                   {wish.needsSaving ? (
                     <>
-                      <Progress value={40} className="mb-2 h-2" />
-                      <p className="text-sm text-muted-foreground">需要規劃儲蓄計畫</p>
+                      <Progress value={0} className="mb-2 h-2" />
+                      <p className="text-sm text-muted-foreground">
+                        需要規劃儲蓄計畫
+                        {wish.monthsRemaining > 0 && (
+                          <span className="ml-2">
+                            （建議每月存 NT$ {Math.ceil(wish.amount / wish.monthsRemaining).toLocaleString()}）
+                          </span>
+                        )}
+                      </p>
                     </>
                   ) : (
                     <>
