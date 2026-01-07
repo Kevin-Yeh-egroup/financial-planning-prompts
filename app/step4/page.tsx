@@ -5,49 +5,160 @@ import Link from "next/link"
 import { Button } from "@/components/ui/button"
 import { Card } from "@/components/ui/card"
 import { Progress } from "@/components/ui/progress"
-import { Plane, GraduationCap, Calendar, TrendingUp, CheckCircle2, Lightbulb, Wallet } from "lucide-react"
+import { Plane, GraduationCap, Home, Gift, ShoppingBag, Heart, Calendar, TrendingUp, CheckCircle2, Lightbulb, Wallet } from "lucide-react"
+
+const iconMap: { [key: string]: any } = {
+  travel: Plane,
+  education: GraduationCap,
+  home: Home,
+  gift: Gift,
+  shopping: ShoppingBag,
+  other: Heart,
+}
 
 export default function Step4Page() {
   const [availableSavings, setAvailableSavings] = useState(0)
   const [monthlyExpenses, setMonthlyExpenses] = useState(33000)
   const [emergencyTarget, setEmergencyTarget] = useState(0)
+  const [savingsPlans, setSavingsPlans] = useState<any[]>([])
 
   // 從 localStorage 讀取數據
   useEffect(() => {
+    if (typeof window === "undefined") return
+
+    // 讀取可動用存款
     const saved = localStorage.getItem("availableSavings")
     if (saved) {
       setAvailableSavings(parseFloat(saved) || 0)
     }
-    // 計算緊急預備金目標（假設是 6 個月支出）
-    const expenses = 33000 // 這裡應該從 step2 或 step3 計算得出
-    setMonthlyExpenses(expenses)
-    setEmergencyTarget(expenses * 6)
+
+    // 從 step2 讀取每月支出
+    const step2DataStr = localStorage.getItem("step2Data")
+    if (step2DataStr) {
+      try {
+        const step2Data = JSON.parse(step2DataStr)
+        const fixedExpenses = step2Data.fixedExpenses || {}
+        const variableExpenses = step2Data.variableExpenses || {}
+        const businessVariableExpenses = step2Data.hasBusiness ? (step2Data.businessVariableExpenses || {}) : {}
+        const businessFixedExpenses = step2Data.hasBusiness ? (step2Data.businessFixedExpenses || {}) : {}
+        const businessExtraExpenses = step2Data.hasBusiness ? (step2Data.businessExtraExpenses || {}) : {}
+
+        const totalFixedExpenses =
+          parseFloat(fixedExpenses.housing || "0") +
+          parseFloat(fixedExpenses.telecom || "0") +
+          parseFloat(fixedExpenses.repayment || "0") +
+          parseFloat(fixedExpenses.insurance || "0") +
+          parseFloat(fixedExpenses.savings || "0")
+
+        const totalVariableExpenses =
+          parseFloat(variableExpenses.food || "0") +
+          parseFloat(variableExpenses.clothing || "0") +
+          parseFloat(variableExpenses.transportation || "0") +
+          parseFloat(variableExpenses.education || "0") +
+          parseFloat(variableExpenses.entertainment || "0") +
+          parseFloat(variableExpenses.medical || "0") +
+          parseFloat(variableExpenses.other || "0")
+
+        const totalBusinessFixedExpenses = step2Data.hasBusiness
+          ? parseFloat(businessFixedExpenses.rent || "0") +
+            parseFloat(businessFixedExpenses.personnel || "0") +
+            parseFloat(businessFixedExpenses.utilities || "0") +
+            parseFloat(businessFixedExpenses.gas || "0") +
+            parseFloat(businessFixedExpenses.communication || "0") +
+            parseFloat(businessFixedExpenses.repayment || "0") +
+            parseFloat(businessFixedExpenses.other || "0")
+          : 0
+
+        const totalBusinessVariableExpenses = step2Data.hasBusiness
+          ? parseFloat(businessVariableExpenses.materials || "0") +
+            parseFloat(businessVariableExpenses.packaging || "0") +
+            parseFloat(businessVariableExpenses.supplies || "0") +
+            parseFloat(businessVariableExpenses.shipping || "0") +
+            parseFloat(businessVariableExpenses.other || "0")
+          : 0
+
+        const totalBusinessExtraExpenses = step2Data.hasBusiness
+          ? parseFloat(businessExtraExpenses.equipment || "0") +
+            parseFloat(businessExtraExpenses.repair || "0") +
+            parseFloat(businessExtraExpenses.marketing || "0") +
+            parseFloat(businessExtraExpenses.other || "0")
+          : 0
+
+        const totalExpenses = totalFixedExpenses + totalVariableExpenses + totalBusinessFixedExpenses + totalBusinessVariableExpenses + totalBusinessExtraExpenses
+        setMonthlyExpenses(totalExpenses)
+        setEmergencyTarget(totalExpenses * 6)
+      } catch (e) {
+        console.error("Error parsing step2Data", e)
+      }
+    }
+
+    // 從 step1 讀取願望數據
+    const wishesStr = localStorage.getItem("wishes")
+    if (wishesStr) {
+      try {
+        const wishes = JSON.parse(wishesStr)
+        const currentYear = new Date().getFullYear()
+        const currentMonth = new Date().getMonth() + 1
+
+        // 過濾掉空的願望
+        const validWishes = wishes.filter((wish: any) => wish.name && wish.name.trim() !== "")
+
+        const plans = validWishes.map((wish: any, index: number) => {
+          const targetYear = parseInt(wish.year || currentYear.toString())
+          const targetMonth = parseInt(wish.month || "12")
+          const targetAmount = parseFloat(wish.cost ? wish.cost.replace(/,/g, "") : "0")
+          const currentSaved = parseFloat(wish.currentSaved ? wish.currentSaved.replace(/,/g, "") : "0")
+
+          // 計算剩餘月數
+          let monthsRemaining = 0
+          if (targetYear > currentYear) {
+            monthsRemaining = (targetYear - currentYear - 1) * 12 + (12 - currentMonth) + targetMonth
+          } else if (targetYear === currentYear) {
+            monthsRemaining = Math.max(0, targetMonth - currentMonth)
+          } else {
+            monthsRemaining = 0
+          }
+
+          // 計算還需要多少金額
+          const stillNeeded = Math.max(0, targetAmount - currentSaved)
+
+          // 計算每月需存金額
+          const monthlySaving = monthsRemaining > 0 ? Math.ceil(stillNeeded / monthsRemaining) : stillNeeded
+
+          // 選擇圖標
+          const IconComponent = iconMap[wish.icon as keyof typeof iconMap] || Heart
+
+          // 選擇顏色（根據索引）
+          const colors = [
+            "from-blue-500/20 to-cyan-500/20",
+            "from-green-500/20 to-emerald-500/20",
+            "from-purple-500/20 to-pink-500/20",
+            "from-orange-500/20 to-red-500/20",
+            "from-yellow-500/20 to-amber-500/20",
+          ]
+          const color = colors[index % colors.length]
+
+          return {
+            name: wish.name,
+            icon: IconComponent,
+            targetAmount,
+            currentSaved,
+            monthsRemaining: Math.max(0, monthsRemaining),
+            monthlySaving,
+            month: `${targetMonth}月`,
+            color,
+          }
+        })
+
+        setSavingsPlans(plans)
+      } catch (e) {
+        console.error("Error parsing wishes", e)
+      }
+    }
   }, [])
 
   // 計算可用於夢想的金額（可動用存款 - 緊急預備金需求）
   const remainingForDreams = Math.max(0, availableSavings - emergencyTarget)
-  const savingsPlans = [
-    {
-      name: "日本家庭旅遊",
-      icon: Plane,
-      targetAmount: 150000,
-      currentSaved: 30000,
-      monthsRemaining: 8,
-      monthlySaving: 15000,
-      month: "8月",
-      color: "from-blue-500/20 to-cyan-500/20",
-    },
-    {
-      name: "孩子才藝課程",
-      icon: GraduationCap,
-      targetAmount: 30000,
-      currentSaved: 20000,
-      monthsRemaining: 3,
-      monthlySaving: 3333,
-      month: "3月",
-      color: "from-green-500/20 to-emerald-500/20",
-    },
-  ]
 
   return (
     <main className="min-h-screen bg-gradient-to-b from-background to-accent/20">
@@ -147,9 +258,15 @@ export default function Step4Page() {
                 <CheckCircle2 className="w-5 h-5 text-primary" />
                 小提醒
               </h3>
-              <p className="text-muted-foreground leading-relaxed text-sm">
-                如果這個月先把「日本旅遊」的 NT$ 15,000
-                存下來，願望就不會擠壓到日常生活費。建議可以在發薪日當天就先轉到專用帳戶，這樣剩下的錢才是真正可以花的。
+                <p className="text-muted-foreground leading-relaxed text-sm">
+                {savingsPlans.length > 0 ? (
+                  <>
+                    如果這個月先把「{savingsPlans[0].name}」的 NT$ {savingsPlans[0].monthlySaving.toLocaleString()}
+                    存下來，願望就不會擠壓到日常生活費。建議可以在發薪日當天就先轉到專用帳戶，這樣剩下的錢才是真正可以花的。
+                  </>
+                ) : (
+                  "建議可以在發薪日當天就先轉到專用帳戶，這樣剩下的錢才是真正可以花的。"
+                )}
               </p>
             </div>
           </div>

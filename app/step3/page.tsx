@@ -133,40 +133,65 @@ export default function Step3Page() {
 
       // 從 localStorage 讀取願望數據
       const wishesStr = localStorage.getItem("wishes")
+      console.log("Step3: wishesStr", wishesStr)
       if (wishesStr) {
-        const wishes = JSON.parse(wishesStr)
-        const currentYear = new Date().getFullYear()
-        const currentMonth = new Date().getMonth() + 1
-        
-        const wishesWithStatus = wishes.map((wish: any) => {
-          const targetYear = parseInt(wish.year || currentYear.toString())
-          const targetMonth = parseInt(wish.month || "12")
-          const cost = parseFloat(wish.cost || "0")
+        try {
+          const wishes = JSON.parse(wishesStr)
+          console.log("Step3: Parsed wishes", wishes)
+          const currentYear = new Date().getFullYear()
+          const currentMonth = new Date().getMonth() + 1
           
-          // 計算剩餘月數
-          let monthsRemaining = 0
-          if (targetYear > currentYear) {
-            monthsRemaining = (targetYear - currentYear - 1) * 12 + (12 - currentMonth) + targetMonth
-          } else if (targetYear === currentYear) {
-            monthsRemaining = Math.max(0, targetMonth - currentMonth)
-          } else {
-            monthsRemaining = 0 // 已過期
+          // 過濾掉空的願望（沒有名稱的）
+          const validWishes = wishes.filter((wish: any) => wish.name && wish.name.trim() !== "")
+          console.log("Step3: Valid wishes", validWishes)
+          
+          if (validWishes.length > 0) {
+            const wishesWithStatus = validWishes.map((wish: any) => {
+              const targetYear = parseInt(wish.year || currentYear.toString())
+              const targetMonth = parseInt(wish.month || "12")
+              const cost = parseFloat(wish.cost ? wish.cost.replace(/,/g, "") : "0")
+              const currentSaved = parseFloat(wish.currentSaved ? wish.currentSaved.replace(/,/g, "") : "0")
+              
+              // 計算剩餘月數
+              let monthsRemaining = 0
+              if (targetYear > currentYear) {
+                monthsRemaining = (targetYear - currentYear - 1) * 12 + (12 - currentMonth) + targetMonth
+              } else if (targetYear === currentYear) {
+                monthsRemaining = Math.max(0, targetMonth - currentMonth)
+              } else {
+                monthsRemaining = 0 // 已過期
+              }
+              
+              // 計算還需要多少金額
+              const stillNeeded = Math.max(0, cost - currentSaved)
+              
+              // 判斷是否需要儲蓄（如果還需要的金額大於可彈性運用金額，需要儲蓄）
+              const needsSaving = stillNeeded > calculatedFlexibleAmount
+              
+              // 計算進度百分比
+              const progress = cost > 0 ? (currentSaved / cost) * 100 : 0
+              
+              return {
+                name: wish.name,
+                amount: cost,
+                currentSaved: currentSaved,
+                stillNeeded: stillNeeded,
+                month: targetMonth,
+                year: targetYear,
+                monthsRemaining: Math.max(0, monthsRemaining),
+                needsSaving,
+                progress: Math.min(100, Math.max(0, progress)),
+              }
+            })
+            
+            console.log("Step3: wishesWithStatus", wishesWithStatus)
+            setFeasibleWishes(wishesWithStatus)
           }
-          
-          // 判斷是否需要儲蓄（如果成本大於可彈性運用金額，需要儲蓄）
-          const needsSaving = cost > calculatedFlexibleAmount
-          
-          return {
-            name: wish.name,
-            amount: cost,
-            month: targetMonth,
-            year: targetYear,
-            monthsRemaining: Math.max(0, monthsRemaining),
-            needsSaving,
-          }
-        })
-        
-        setFeasibleWishes(wishesWithStatus)
+        } catch (error) {
+          console.error("Step3: Error parsing wishes", error)
+        }
+      } else {
+        console.log("Step3: No wishes found in localStorage")
       }
       
       setIsLoading(false)
@@ -323,6 +348,9 @@ export default function Step3Page() {
                       <p className="text-sm text-muted-foreground">
                         目標金額：NT$ {wish.amount.toLocaleString()} | 完成時間：{wish.year} 年 {wish.month} 月
                         {wish.monthsRemaining > 0 && ` (剩餘 ${wish.monthsRemaining} 個月)`}
+                        {wish.stillNeeded > 0 && (
+                          <span className="ml-2 text-primary">| 還需要：NT$ {wish.stillNeeded.toLocaleString()}</span>
+                        )}
                       </p>
                     </div>
                     {!wish.needsSaving && (
@@ -332,22 +360,27 @@ export default function Step3Page() {
                       </div>
                     )}
                   </div>
+                  <Progress value={wish.progress || 0} className="mb-2 h-2" />
                   {wish.needsSaving ? (
                     <>
-                      <Progress value={0} className="mb-2 h-2" />
                       <p className="text-sm text-muted-foreground">
                         需要規劃儲蓄計畫
-                        {wish.monthsRemaining > 0 && (
+                        {wish.monthsRemaining > 0 && wish.stillNeeded > 0 && (
                           <span className="ml-2">
-                            （建議每月存 NT$ {Math.ceil(wish.amount / wish.monthsRemaining).toLocaleString()}）
+                            （建議每月存 NT$ {Math.ceil(wish.stillNeeded / wish.monthsRemaining).toLocaleString()}）
                           </span>
                         )}
+                      </p>
+                      <p className="text-xs text-muted-foreground mt-1">
+                        目前已完成：NT$ {wish.currentSaved.toLocaleString()} / 目標：NT$ {wish.amount.toLocaleString()}
                       </p>
                     </>
                   ) : (
                     <>
-                      <Progress value={100} className="mb-2 h-2" />
                       <p className="text-sm text-primary">預算內可以完成</p>
+                      <p className="text-xs text-muted-foreground mt-1">
+                        目前已完成：NT$ {wish.currentSaved.toLocaleString()} / 目標：NT$ {wish.amount.toLocaleString()}
+                      </p>
                     </>
                   )}
                 </div>

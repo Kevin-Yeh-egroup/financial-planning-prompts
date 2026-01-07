@@ -42,12 +42,34 @@ import {
 export default function Step2Page() {
   const router = useRouter()
   
+  // 格式化數字為千分位號
+  const formatNumber = (value: string): string => {
+    if (!value) return ""
+    // 移除所有非數字字符
+    const numValue = value.replace(/\D/g, "")
+    if (!numValue) return ""
+    // 轉換為數字並格式化
+    return parseInt(numValue).toLocaleString("zh-TW")
+  }
+
+  // 解析格式化後的數字（移除千分位號）
+  const parseNumber = (value: string): string => {
+    return value.replace(/,/g, "")
+  }
+
+  // 處理輸入變化，自動格式化
+  const handleNumberChange = (value: string, setter: (value: string) => void) => {
+    const parsed = parseNumber(value)
+    const formatted = formatNumber(parsed)
+    setter(formatted)
+  }
+  
   // 目前可動用的存款金額
-  const [availableSavings, setAvailableSavings] = useState("")
+  const [availableSavings, setAvailableSavings] = useState("100,000")
 
   // 固定收入
   const [fixedIncome, setFixedIncome] = useState({
-    salary: "",
+    salary: "40,000",
     rent: "",
     investment: "",
     pension: "",
@@ -56,7 +78,7 @@ export default function Step2Page() {
 
   // 變動收入
   const [variableIncome, setVariableIncome] = useState({
-    sideJob: "",
+    sideJob: "20,000",
     temporaryWork: "",
     interest: "",
     gift: "",
@@ -65,22 +87,22 @@ export default function Step2Page() {
 
   // 生活固定支出
   const [fixedExpenses, setFixedExpenses] = useState({
-    housing: "",
-    telecom: "",
-    repayment: "",
-    insurance: "",
-    savings: "",
+    housing: "15,000",
+    telecom: "3,000",
+    repayment: "3,000",
+    insurance: "5,000",
+    savings: "1,000",
   })
 
   // 生活變動支出
   const [variableExpenses, setVariableExpenses] = useState({
-    food: "",
-    clothing: "",
-    transportation: "",
-    education: "",
-    entertainment: "",
-    medical: "",
-    other: "",
+    food: "8,000",
+    clothing: "2,000",
+    transportation: "3,000",
+    education: "5,000",
+    entertainment: "2,000",
+    medical: "2,000",
+    other: "1,000",
   })
 
   // 是否有做生意
@@ -125,19 +147,27 @@ export default function Step2Page() {
   })
 
   const updateFixedIncome = (field: string, value: string) => {
-    setFixedIncome({ ...fixedIncome, [field]: value })
+    handleNumberChange(value, (formatted) => {
+      setFixedIncome({ ...fixedIncome, [field]: formatted })
+    })
   }
 
   const updateVariableIncome = (field: string, value: string) => {
-    setVariableIncome({ ...variableIncome, [field]: value })
+    handleNumberChange(value, (formatted) => {
+      setVariableIncome({ ...variableIncome, [field]: formatted })
+    })
   }
 
   const updateFixedExpenses = (field: string, value: string) => {
-    setFixedExpenses({ ...fixedExpenses, [field]: value })
+    handleNumberChange(value, (formatted) => {
+      setFixedExpenses({ ...fixedExpenses, [field]: formatted })
+    })
   }
 
   const updateVariableExpenses = (field: string, value: string) => {
-    setVariableExpenses({ ...variableExpenses, [field]: value })
+    handleNumberChange(value, (formatted) => {
+      setVariableExpenses({ ...variableExpenses, [field]: formatted })
+    })
   }
 
   const updateBusinessIncome = (field: string, value: string) => {
@@ -156,26 +186,79 @@ export default function Step2Page() {
     setBusinessExtraExpenses({ ...businessExtraExpenses, [field]: value })
   }
 
-  // 保存數據到 localStorage
+  // 保存數據到 localStorage（保存時移除千分位號）
   useEffect(() => {
-    if (availableSavings) {
-      localStorage.setItem("availableSavings", availableSavings)
+    // 將所有格式化後的數字轉換為純數字字符串保存
+    const saveData = {
+      availableSavings: parseNumber(availableSavings),
+      fixedIncome: {
+        salary: parseNumber(fixedIncome.salary),
+        rent: parseNumber(fixedIncome.rent),
+        investment: parseNumber(fixedIncome.investment),
+        pension: parseNumber(fixedIncome.pension),
+        governmentSubsidy: parseNumber(fixedIncome.governmentSubsidy),
+      },
+      variableIncome: {
+        sideJob: parseNumber(variableIncome.sideJob),
+        temporaryWork: parseNumber(variableIncome.temporaryWork),
+        interest: parseNumber(variableIncome.interest),
+        gift: parseNumber(variableIncome.gift),
+        other: parseNumber(variableIncome.other),
+      },
+      fixedExpenses: {
+        housing: parseNumber(fixedExpenses.housing),
+        telecom: parseNumber(fixedExpenses.telecom),
+        repayment: parseNumber(fixedExpenses.repayment),
+        insurance: parseNumber(fixedExpenses.insurance),
+        savings: parseNumber(fixedExpenses.savings),
+      },
+      variableExpenses: {
+        food: parseNumber(variableExpenses.food),
+        clothing: parseNumber(variableExpenses.clothing),
+        transportation: parseNumber(variableExpenses.transportation),
+        education: parseNumber(variableExpenses.education),
+        entertainment: parseNumber(variableExpenses.entertainment),
+        medical: parseNumber(variableExpenses.medical),
+        other: parseNumber(variableExpenses.other),
+      },
+      hasBusiness,
+      businessIncome: {
+        productSales: parseNumber(businessIncome.productSales),
+        serviceIncome: parseNumber(businessIncome.serviceIncome),
+        equipmentSale: parseNumber(businessIncome.equipmentSale),
+        venueRental: parseNumber(businessIncome.venueRental),
+        partnership: parseNumber(businessIncome.partnership),
+        other: parseNumber(businessIncome.other),
+      },
+      businessVariableExpenses: {
+        materials: parseNumber(businessVariableExpenses.materials),
+        packaging: parseNumber(businessVariableExpenses.packaging),
+        supplies: parseNumber(businessVariableExpenses.supplies),
+        shipping: parseNumber(businessVariableExpenses.shipping),
+        other: parseNumber(businessVariableExpenses.other),
+      },
+      businessFixedExpenses: {
+        rent: parseNumber(businessFixedExpenses.rent),
+        personnel: parseNumber(businessFixedExpenses.personnel),
+        utilities: parseNumber(businessFixedExpenses.utilities),
+        gas: parseNumber(businessFixedExpenses.gas),
+        communication: parseNumber(businessFixedExpenses.communication),
+        repayment: parseNumber(businessFixedExpenses.repayment),
+        other: parseNumber(businessFixedExpenses.other),
+      },
+      businessExtraExpenses: {
+        equipment: parseNumber(businessExtraExpenses.equipment),
+        repair: parseNumber(businessExtraExpenses.repair),
+        marketing: parseNumber(businessExtraExpenses.marketing),
+        other: parseNumber(businessExtraExpenses.other),
+      },
     }
     
-    // 保存所有收入和支出數據
-    const allData = {
-      availableSavings,
-      fixedIncome,
-      variableIncome,
-      fixedExpenses,
-      variableExpenses,
-      hasBusiness,
-      businessIncome,
-      businessVariableExpenses,
-      businessFixedExpenses,
-      businessExtraExpenses,
+    if (saveData.availableSavings) {
+      localStorage.setItem("availableSavings", saveData.availableSavings)
     }
-    localStorage.setItem("step2Data", JSON.stringify(allData))
+    
+    localStorage.setItem("step2Data", JSON.stringify(saveData))
   }, [
     availableSavings,
     fixedIncome,
@@ -220,10 +303,10 @@ export default function Step2Page() {
                 <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground">NT$</span>
                 <Input
                   id="availableSavings"
-                  type="number"
+                  type="text"
                   placeholder="100000"
                   value={availableSavings}
-                  onChange={(e) => setAvailableSavings(e.target.value)}
+                  onChange={(e) => handleNumberChange(e.target.value, setAvailableSavings)}
                   className="pl-12 rounded-lg"
                 />
               </div>
@@ -258,7 +341,7 @@ export default function Step2Page() {
                   <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground">NT$</span>
                   <Input
                     id="salary"
-                    type="number"
+                    type="text"
                     placeholder="40000"
                           value={fixedIncome.salary}
                           onChange={(e) => updateFixedIncome("salary", e.target.value)}
@@ -274,7 +357,7 @@ export default function Step2Page() {
                         <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground">NT$</span>
                         <Input
                           id="rent"
-                          type="number"
+                          type="text"
                           placeholder="0"
                           value={fixedIncome.rent}
                           onChange={(e) => updateFixedIncome("rent", e.target.value)}
@@ -290,7 +373,7 @@ export default function Step2Page() {
                         <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground">NT$</span>
                         <Input
                           id="investment"
-                          type="number"
+                          type="text"
                           placeholder="0"
                           value={fixedIncome.investment}
                           onChange={(e) => updateFixedIncome("investment", e.target.value)}
@@ -306,7 +389,7 @@ export default function Step2Page() {
                         <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground">NT$</span>
                         <Input
                           id="pension"
-                          type="number"
+                          type="text"
                           placeholder="0"
                           value={fixedIncome.pension}
                           onChange={(e) => updateFixedIncome("pension", e.target.value)}
@@ -322,7 +405,7 @@ export default function Step2Page() {
                         <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground">NT$</span>
                         <Input
                           id="governmentSubsidy"
-                          type="number"
+                          type="text"
                           placeholder="0"
                           value={fixedIncome.governmentSubsidy}
                           onChange={(e) => updateFixedIncome("governmentSubsidy", e.target.value)}
@@ -352,7 +435,7 @@ export default function Step2Page() {
                         <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground">NT$</span>
                         <Input
                           id="sideJob"
-                          type="number"
+                          type="text"
                           placeholder="0"
                           value={variableIncome.sideJob}
                           onChange={(e) => updateVariableIncome("sideJob", e.target.value)}
@@ -368,7 +451,7 @@ export default function Step2Page() {
                         <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground">NT$</span>
                         <Input
                           id="temporaryWork"
-                          type="number"
+                          type="text"
                           placeholder="0"
                           value={variableIncome.temporaryWork}
                           onChange={(e) => updateVariableIncome("temporaryWork", e.target.value)}
@@ -384,7 +467,7 @@ export default function Step2Page() {
                         <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground">NT$</span>
                         <Input
                           id="interest"
-                          type="number"
+                          type="text"
                           placeholder="0"
                           value={variableIncome.interest}
                           onChange={(e) => updateVariableIncome("interest", e.target.value)}
@@ -400,7 +483,7 @@ export default function Step2Page() {
                         <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground">NT$</span>
                         <Input
                           id="gift"
-                          type="number"
+                          type="text"
                           placeholder="0"
                           value={variableIncome.gift}
                           onChange={(e) => updateVariableIncome("gift", e.target.value)}
@@ -416,7 +499,7 @@ export default function Step2Page() {
                   <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground">NT$</span>
                   <Input
                     id="otherIncome"
-                    type="number"
+                    type="text"
                           placeholder="0"
                           value={variableIncome.other}
                           onChange={(e) => updateVariableIncome("other", e.target.value)}
@@ -459,7 +542,7 @@ export default function Step2Page() {
                   <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground">NT$</span>
                   <Input
                           id="housing"
-                    type="number"
+                    type="text"
                     placeholder="15000"
                           value={fixedExpenses.housing}
                           onChange={(e) => updateFixedExpenses("housing", e.target.value)}
@@ -476,7 +559,7 @@ export default function Step2Page() {
                         <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground">NT$</span>
                         <Input
                           id="telecom"
-                          type="number"
+                          type="text"
                           placeholder="1200"
                           value={fixedExpenses.telecom}
                           onChange={(e) => updateFixedExpenses("telecom", e.target.value)}
@@ -493,7 +576,7 @@ export default function Step2Page() {
                   <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground">NT$</span>
                   <Input
                           id="repayment"
-                    type="number"
+                    type="text"
                           placeholder="0"
                           value={fixedExpenses.repayment}
                           onChange={(e) => updateFixedExpenses("repayment", e.target.value)}
@@ -510,7 +593,7 @@ export default function Step2Page() {
                   <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground">NT$</span>
                   <Input
                     id="insurance"
-                    type="number"
+                    type="text"
                     placeholder="5000"
                           value={fixedExpenses.insurance}
                           onChange={(e) => updateFixedExpenses("insurance", e.target.value)}
@@ -527,7 +610,7 @@ export default function Step2Page() {
                         <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground">NT$</span>
                         <Input
                           id="savings"
-                          type="number"
+                          type="text"
                           placeholder="0"
                           value={fixedExpenses.savings}
                           onChange={(e) => updateFixedExpenses("savings", e.target.value)}
@@ -558,7 +641,7 @@ export default function Step2Page() {
                   <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground">NT$</span>
                   <Input
                           id="food"
-                    type="number"
+                    type="text"
                     placeholder="8000"
                           value={variableExpenses.food}
                           onChange={(e) => updateVariableExpenses("food", e.target.value)}
@@ -575,7 +658,7 @@ export default function Step2Page() {
                         <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground">NT$</span>
                         <Input
                           id="clothing"
-                          type="number"
+                          type="text"
                           placeholder="2000"
                           value={variableExpenses.clothing}
                           onChange={(e) => updateVariableExpenses("clothing", e.target.value)}
@@ -592,7 +675,7 @@ export default function Step2Page() {
                         <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground">NT$</span>
                         <Input
                           id="transportation"
-                          type="number"
+                          type="text"
                           placeholder="3000"
                           value={variableExpenses.transportation}
                           onChange={(e) => updateVariableExpenses("transportation", e.target.value)}
@@ -609,7 +692,7 @@ export default function Step2Page() {
                   <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground">NT$</span>
                   <Input
                           id="education"
-                    type="number"
+                    type="text"
                           placeholder="5000"
                           value={variableExpenses.education}
                           onChange={(e) => updateVariableExpenses("education", e.target.value)}
@@ -626,7 +709,7 @@ export default function Step2Page() {
                   <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground">NT$</span>
                   <Input
                           id="entertainment"
-                    type="number"
+                    type="text"
                     placeholder="2000"
                           value={variableExpenses.entertainment}
                           onChange={(e) => updateVariableExpenses("entertainment", e.target.value)}
@@ -643,7 +726,7 @@ export default function Step2Page() {
                         <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground">NT$</span>
                         <Input
                           id="medical"
-                          type="number"
+                          type="text"
                           placeholder="1000"
                           value={variableExpenses.medical}
                           onChange={(e) => updateVariableExpenses("medical", e.target.value)}
@@ -660,7 +743,7 @@ export default function Step2Page() {
                         <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground">NT$</span>
                         <Input
                           id="otherExpenses"
-                          type="number"
+                          type="text"
                           placeholder="3000"
                           value={variableExpenses.other}
                           onChange={(e) => updateVariableExpenses("other", e.target.value)}
@@ -722,7 +805,7 @@ export default function Step2Page() {
                         <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground">NT$</span>
                         <Input
                           id="productSales"
-                          type="number"
+                          type="text"
                           placeholder="0"
                           value={businessIncome.productSales}
                           onChange={(e) => updateBusinessIncome("productSales", e.target.value)}
@@ -739,7 +822,7 @@ export default function Step2Page() {
                         <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground">NT$</span>
                         <Input
                           id="serviceIncome"
-                          type="number"
+                          type="text"
                           placeholder="0"
                           value={businessIncome.serviceIncome}
                           onChange={(e) => updateBusinessIncome("serviceIncome", e.target.value)}
@@ -756,7 +839,7 @@ export default function Step2Page() {
                         <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground">NT$</span>
                         <Input
                           id="equipmentSale"
-                          type="number"
+                          type="text"
                           placeholder="0"
                           value={businessIncome.equipmentSale}
                           onChange={(e) => updateBusinessIncome("equipmentSale", e.target.value)}
@@ -773,7 +856,7 @@ export default function Step2Page() {
                         <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground">NT$</span>
                         <Input
                           id="venueRental"
-                          type="number"
+                          type="text"
                           placeholder="0"
                           value={businessIncome.venueRental}
                           onChange={(e) => updateBusinessIncome("venueRental", e.target.value)}
@@ -790,7 +873,7 @@ export default function Step2Page() {
                         <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground">NT$</span>
                         <Input
                           id="partnership"
-                          type="number"
+                          type="text"
                           placeholder="0"
                           value={businessIncome.partnership}
                           onChange={(e) => updateBusinessIncome("partnership", e.target.value)}
@@ -807,7 +890,7 @@ export default function Step2Page() {
                         <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground">NT$</span>
                         <Input
                           id="otherBusinessIncome"
-                          type="number"
+                          type="text"
                           placeholder="0"
                           value={businessIncome.other}
                           onChange={(e) => updateBusinessIncome("other", e.target.value)}
@@ -844,7 +927,7 @@ export default function Step2Page() {
                             <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground">NT$</span>
                             <Input
                               id="materials"
-                              type="number"
+                              type="text"
                               placeholder="0"
                               value={businessVariableExpenses.materials}
                               onChange={(e) => updateBusinessVariableExpenses("materials", e.target.value)}
@@ -860,7 +943,7 @@ export default function Step2Page() {
                             <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground">NT$</span>
                             <Input
                               id="packaging"
-                              type="number"
+                              type="text"
                               placeholder="0"
                               value={businessVariableExpenses.packaging}
                               onChange={(e) => updateBusinessVariableExpenses("packaging", e.target.value)}
@@ -876,7 +959,7 @@ export default function Step2Page() {
                   <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground">NT$</span>
                   <Input
                               id="supplies"
-                    type="number"
+                    type="text"
                               placeholder="0"
                               value={businessVariableExpenses.supplies}
                               onChange={(e) => updateBusinessVariableExpenses("supplies", e.target.value)}
@@ -892,7 +975,7 @@ export default function Step2Page() {
                   <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground">NT$</span>
                   <Input
                               id="shipping"
-                    type="number"
+                    type="text"
                               placeholder="0"
                               value={businessVariableExpenses.shipping}
                               onChange={(e) => updateBusinessVariableExpenses("shipping", e.target.value)}
@@ -908,7 +991,7 @@ export default function Step2Page() {
                             <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground">NT$</span>
                             <Input
                               id="variableOther"
-                              type="number"
+                              type="text"
                               placeholder="0"
                               value={businessVariableExpenses.other}
                               onChange={(e) => updateBusinessVariableExpenses("other", e.target.value)}
@@ -934,7 +1017,7 @@ export default function Step2Page() {
                             <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground">NT$</span>
                             <Input
                               id="businessRent"
-                              type="number"
+                              type="text"
                               placeholder="0"
                               value={businessFixedExpenses.rent}
                               onChange={(e) => updateBusinessFixedExpenses("rent", e.target.value)}
@@ -950,7 +1033,7 @@ export default function Step2Page() {
                             <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground">NT$</span>
                             <Input
                               id="personnel"
-                              type="number"
+                              type="text"
                               placeholder="0"
                               value={businessFixedExpenses.personnel}
                               onChange={(e) => updateBusinessFixedExpenses("personnel", e.target.value)}
@@ -966,7 +1049,7 @@ export default function Step2Page() {
                             <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground">NT$</span>
                             <Input
                               id="businessUtilities"
-                              type="number"
+                              type="text"
                               placeholder="0"
                               value={businessFixedExpenses.utilities}
                               onChange={(e) => updateBusinessFixedExpenses("utilities", e.target.value)}
@@ -982,7 +1065,7 @@ export default function Step2Page() {
                             <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground">NT$</span>
                             <Input
                               id="businessGas"
-                              type="number"
+                              type="text"
                               placeholder="0"
                               value={businessFixedExpenses.gas}
                               onChange={(e) => updateBusinessFixedExpenses("gas", e.target.value)}
@@ -998,7 +1081,7 @@ export default function Step2Page() {
                             <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground">NT$</span>
                             <Input
                               id="businessCommunication"
-                              type="number"
+                              type="text"
                               placeholder="0"
                               value={businessFixedExpenses.communication}
                               onChange={(e) => updateBusinessFixedExpenses("communication", e.target.value)}
@@ -1014,7 +1097,7 @@ export default function Step2Page() {
                             <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground">NT$</span>
                             <Input
                               id="businessRepayment"
-                              type="number"
+                              type="text"
                               placeholder="0"
                               value={businessFixedExpenses.repayment}
                               onChange={(e) => updateBusinessFixedExpenses("repayment", e.target.value)}
@@ -1030,7 +1113,7 @@ export default function Step2Page() {
                             <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground">NT$</span>
                             <Input
                               id="fixedOther"
-                              type="number"
+                              type="text"
                               placeholder="0"
                               value={businessFixedExpenses.other}
                               onChange={(e) => updateBusinessFixedExpenses("other", e.target.value)}
@@ -1056,7 +1139,7 @@ export default function Step2Page() {
                             <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground">NT$</span>
                             <Input
                               id="equipment"
-                              type="number"
+                              type="text"
                               placeholder="0"
                               value={businessExtraExpenses.equipment}
                               onChange={(e) => updateBusinessExtraExpenses("equipment", e.target.value)}
@@ -1072,7 +1155,7 @@ export default function Step2Page() {
                             <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground">NT$</span>
                             <Input
                               id="repair"
-                              type="number"
+                              type="text"
                               placeholder="0"
                               value={businessExtraExpenses.repair}
                               onChange={(e) => updateBusinessExtraExpenses("repair", e.target.value)}
@@ -1088,7 +1171,7 @@ export default function Step2Page() {
                             <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground">NT$</span>
                             <Input
                               id="marketing"
-                              type="number"
+                              type="text"
                               placeholder="0"
                               value={businessExtraExpenses.marketing}
                               onChange={(e) => updateBusinessExtraExpenses("marketing", e.target.value)}
@@ -1104,7 +1187,7 @@ export default function Step2Page() {
                             <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground">NT$</span>
                             <Input
                               id="extraOther"
-                              type="number"
+                              type="text"
                               placeholder="0"
                               value={businessExtraExpenses.other}
                               onChange={(e) => updateBusinessExtraExpenses("other", e.target.value)}
@@ -1131,22 +1214,74 @@ export default function Step2Page() {
             size="lg"
             className="px-8 py-6 rounded-xl"
             onClick={() => {
-              // 在導航前強制保存所有數據
-              const allData = {
-                availableSavings,
-                fixedIncome,
-                variableIncome,
-                fixedExpenses,
-                variableExpenses,
+              // 在導航前強制保存所有數據（移除千分位號）
+              const saveData = {
+                availableSavings: parseNumber(availableSavings),
+                fixedIncome: {
+                  salary: parseNumber(fixedIncome.salary),
+                  rent: parseNumber(fixedIncome.rent),
+                  investment: parseNumber(fixedIncome.investment),
+                  pension: parseNumber(fixedIncome.pension),
+                  governmentSubsidy: parseNumber(fixedIncome.governmentSubsidy),
+                },
+                variableIncome: {
+                  sideJob: parseNumber(variableIncome.sideJob),
+                  temporaryWork: parseNumber(variableIncome.temporaryWork),
+                  interest: parseNumber(variableIncome.interest),
+                  gift: parseNumber(variableIncome.gift),
+                  other: parseNumber(variableIncome.other),
+                },
+                fixedExpenses: {
+                  housing: parseNumber(fixedExpenses.housing),
+                  telecom: parseNumber(fixedExpenses.telecom),
+                  repayment: parseNumber(fixedExpenses.repayment),
+                  insurance: parseNumber(fixedExpenses.insurance),
+                  savings: parseNumber(fixedExpenses.savings),
+                },
+                variableExpenses: {
+                  food: parseNumber(variableExpenses.food),
+                  clothing: parseNumber(variableExpenses.clothing),
+                  transportation: parseNumber(variableExpenses.transportation),
+                  education: parseNumber(variableExpenses.education),
+                  entertainment: parseNumber(variableExpenses.entertainment),
+                  medical: parseNumber(variableExpenses.medical),
+                  other: parseNumber(variableExpenses.other),
+                },
                 hasBusiness,
-                businessIncome,
-                businessVariableExpenses,
-                businessFixedExpenses,
-                businessExtraExpenses,
+                businessIncome: {
+                  productSales: parseNumber(businessIncome.productSales),
+                  serviceIncome: parseNumber(businessIncome.serviceIncome),
+                  equipmentSale: parseNumber(businessIncome.equipmentSale),
+                  venueRental: parseNumber(businessIncome.venueRental),
+                  partnership: parseNumber(businessIncome.partnership),
+                  other: parseNumber(businessIncome.other),
+                },
+                businessVariableExpenses: {
+                  materials: parseNumber(businessVariableExpenses.materials),
+                  packaging: parseNumber(businessVariableExpenses.packaging),
+                  supplies: parseNumber(businessVariableExpenses.supplies),
+                  shipping: parseNumber(businessVariableExpenses.shipping),
+                  other: parseNumber(businessVariableExpenses.other),
+                },
+                businessFixedExpenses: {
+                  rent: parseNumber(businessFixedExpenses.rent),
+                  personnel: parseNumber(businessFixedExpenses.personnel),
+                  utilities: parseNumber(businessFixedExpenses.utilities),
+                  gas: parseNumber(businessFixedExpenses.gas),
+                  communication: parseNumber(businessFixedExpenses.communication),
+                  repayment: parseNumber(businessFixedExpenses.repayment),
+                  other: parseNumber(businessFixedExpenses.other),
+                },
+                businessExtraExpenses: {
+                  equipment: parseNumber(businessExtraExpenses.equipment),
+                  repair: parseNumber(businessExtraExpenses.repair),
+                  marketing: parseNumber(businessExtraExpenses.marketing),
+                  other: parseNumber(businessExtraExpenses.other),
+                },
               }
-              localStorage.setItem("step2Data", JSON.stringify(allData))
-              if (availableSavings) {
-                localStorage.setItem("availableSavings", availableSavings)
+              localStorage.setItem("step2Data", JSON.stringify(saveData))
+              if (saveData.availableSavings) {
+                localStorage.setItem("availableSavings", saveData.availableSavings)
               }
               // 導航到 step3
               router.push("/step3")

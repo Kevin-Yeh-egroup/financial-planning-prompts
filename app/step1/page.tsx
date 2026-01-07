@@ -1,6 +1,7 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
+import { useRouter } from "next/navigation"
 import Link from "next/link"
 import { Button } from "@/components/ui/button"
 import { Card } from "@/components/ui/card"
@@ -13,6 +14,7 @@ interface Wish {
   id: string
   name: string
   cost: string
+  currentSaved: string
   year: string
   month: string
   icon: string
@@ -28,14 +30,75 @@ const iconMap = {
 }
 
 export default function Step1Page() {
+  const router = useRouter()
   const currentYear = new Date().getFullYear()
-  const [wishes, setWishes] = useState<Wish[]>([
-    { id: "1", name: "日本家庭旅遊", cost: "150000", year: currentYear.toString(), month: "8", icon: "travel" },
-    { id: "2", name: "孩子才藝課程", cost: "30000", year: currentYear.toString(), month: "3", icon: "education" },
-  ])
+  
+  // 格式化數字為千分位號
+  const formatNumber = (value: string): string => {
+    if (!value) return ""
+    // 移除所有非數字字符
+    const numValue = value.replace(/\D/g, "")
+    if (!numValue) return ""
+    // 轉換為數字並格式化
+    return parseInt(numValue).toLocaleString("zh-TW")
+  }
+
+  // 解析格式化後的數字（移除千分位號）
+  const parseNumber = (value: string): string => {
+    return value.replace(/,/g, "")
+  }
+
+  // 處理金額輸入變化，自動格式化
+  const handleCostChange = (id: string, value: string) => {
+    const parsed = parseNumber(value)
+    const formatted = formatNumber(parsed)
+    updateWish(id, "cost", formatted)
+  }
+
+  // 處理已完成金額輸入變化，自動格式化
+  const handleCurrentSavedChange = (id: string, value: string) => {
+    const parsed = parseNumber(value)
+    const formatted = formatNumber(parsed)
+    updateWish(id, "currentSaved", formatted)
+  }
+  
+  // 從 localStorage 讀取願望數據
+  const [wishes, setWishes] = useState<Wish[]>(() => {
+    if (typeof window !== "undefined") {
+      const saved = localStorage.getItem("wishes")
+      if (saved) {
+        try {
+          const parsed = JSON.parse(saved)
+          // 格式化已保存的金額，如果是預設的兩個願望且沒有 currentSaved，則設置預設值
+          return parsed.map((wish: any) => {
+            let defaultCurrentSaved = ""
+            // 如果是預設的兩個願望，設置預設的已完成金額
+            if (wish.id === "1" && wish.name === "日本家庭旅遊") {
+              defaultCurrentSaved = "10,000"
+            } else if (wish.id === "2" && wish.name === "孩子才藝課程") {
+              defaultCurrentSaved = "15,000"
+            }
+            
+            return {
+              ...wish,
+              cost: wish.cost ? formatNumber(wish.cost) : "",
+              currentSaved: wish.currentSaved ? formatNumber(wish.currentSaved) : defaultCurrentSaved,
+            }
+          })
+        } catch (e) {
+          console.error("Error parsing wishes from localStorage", e)
+        }
+      }
+    }
+    // 預設數據（帶千分位號）
+    return [
+      { id: "1", name: "日本家庭旅遊", cost: "150,000", currentSaved: "10,000", year: currentYear.toString(), month: "8", icon: "travel" },
+      { id: "2", name: "孩子才藝課程", cost: "30,000", currentSaved: "15,000", year: currentYear.toString(), month: "3", icon: "education" },
+    ]
+  })
 
   const addWish = () => {
-    setWishes([...wishes, { id: Date.now().toString(), name: "", cost: "", year: currentYear.toString(), month: "", icon: "other" }])
+    setWishes([...wishes, { id: Date.now().toString(), name: "", cost: "", currentSaved: "", year: currentYear.toString(), month: "", icon: "other" }])
   }
 
   const removeWish = (id: string) => {
@@ -45,6 +108,45 @@ export default function Step1Page() {
   const updateWish = (id: string, field: keyof Wish, value: string) => {
     setWishes(wishes.map((w) => (w.id === id ? { ...w, [field]: value } : w)))
   }
+
+  // 確保預設願望有已完成金額
+  useEffect(() => {
+    const needsUpdate = wishes.some((wish) => {
+      if (wish.id === "1" && wish.name === "日本家庭旅遊" && !wish.currentSaved) {
+        return true
+      }
+      if (wish.id === "2" && wish.name === "孩子才藝課程" && !wish.currentSaved) {
+        return true
+      }
+      return false
+    })
+
+    if (needsUpdate) {
+      setWishes((prevWishes) =>
+        prevWishes.map((wish) => {
+          if (wish.id === "1" && wish.name === "日本家庭旅遊" && !wish.currentSaved) {
+            return { ...wish, currentSaved: "10,000" }
+          }
+          if (wish.id === "2" && wish.name === "孩子才藝課程" && !wish.currentSaved) {
+            return { ...wish, currentSaved: "15,000" }
+          }
+          return wish
+        })
+      )
+    }
+  }, [wishes])
+
+  // 保存願望數據到 localStorage（保存時移除千分位號）
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      const saveData = wishes.map((wish) => ({
+        ...wish,
+        cost: parseNumber(wish.cost),
+        currentSaved: parseNumber(wish.currentSaved || ""),
+      }))
+      localStorage.setItem("wishes", JSON.stringify(saveData))
+    }
+  }, [wishes])
 
   return (
     <main className="min-h-screen bg-gradient-to-b from-background to-accent/20">
@@ -116,7 +218,7 @@ export default function Step1Page() {
                   </div>
 
                   {/* Form Fields */}
-                  <div className="flex-1 grid gap-4 md:grid-cols-4">
+                  <div className="flex-1 grid gap-4 md:grid-cols-5">
                     <div className="md:col-span-1">
                       <Label htmlFor={`name-${wish.id}`} className="text-sm text-muted-foreground mb-2 block">
                         願望名稱
@@ -137,10 +239,26 @@ export default function Step1Page() {
                         <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground">NT$</span>
                         <Input
                           id={`cost-${wish.id}`}
-                          type="number"
-                          placeholder="50000"
+                          type="text"
+                          placeholder="50,000"
                           value={wish.cost}
-                          onChange={(e) => updateWish(wish.id, "cost", e.target.value)}
+                          onChange={(e) => handleCostChange(wish.id, e.target.value)}
+                          className="pl-12 rounded-lg"
+                        />
+                      </div>
+                    </div>
+                    <div>
+                      <Label htmlFor={`currentSaved-${wish.id}`} className="text-sm text-muted-foreground mb-2 block">
+                        目前已完成金額
+                      </Label>
+                      <div className="relative">
+                        <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground">NT$</span>
+                        <Input
+                          id={`currentSaved-${wish.id}`}
+                          type="text"
+                          placeholder="0"
+                          value={wish.currentSaved || ""}
+                          onChange={(e) => handleCurrentSavedChange(wish.id, e.target.value)}
                           className="pl-12 rounded-lg"
                         />
                       </div>
@@ -215,11 +333,22 @@ export default function Step1Page() {
           <Link href="/">
             <Button variant="ghost">返回</Button>
           </Link>
-          <Link href="/step2">
-            <Button size="lg" className="px-8 py-6 rounded-xl">
-              下一步，看看我的錢
-            </Button>
-          </Link>
+          <Button
+            size="lg"
+            className="px-8 py-6 rounded-xl"
+            onClick={() => {
+              // 在導航前強制保存願望數據（移除千分位號）
+              const saveData = wishes.map((wish) => ({
+                ...wish,
+                cost: parseNumber(wish.cost),
+                currentSaved: parseNumber(wish.currentSaved || ""),
+              }))
+              localStorage.setItem("wishes", JSON.stringify(saveData))
+              router.push("/step2")
+            }}
+          >
+            下一步，看看我的錢
+          </Button>
         </div>
       </div>
     </main>
