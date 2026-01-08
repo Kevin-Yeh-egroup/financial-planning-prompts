@@ -21,8 +21,13 @@ import {
   Upload,
   Sparkles as SparklesIcon,
   CheckCircle2,
+  Edit,
+  Save,
+  X,
 } from "lucide-react"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { Input } from "@/components/ui/input"
+import { Label } from "@/components/ui/label"
 import {
   Dialog,
   DialogContent,
@@ -151,6 +156,16 @@ export default function RecordsPage() {
   const [transcriptionText, setTranscriptionText] = useState<string>("")
   const [recordingComplete, setRecordingComplete] = useState(false)
   const [uploadSuccess, setUploadSuccess] = useState(false)
+  
+  // 編輯狀態
+  const [editingWishId, setEditingWishId] = useState<string | null>(null)
+  const [editingEmergency, setEditingEmergency] = useState(false)
+  const [editingRecordId, setEditingRecordId] = useState<string | null>(null)
+  
+  // 編輯中的數據
+  const [editingWishData, setEditingWishData] = useState<any>(null)
+  const [editingEmergencyAmount, setEditingEmergencyAmount] = useState(0)
+  const [editingRecordData, setEditingRecordData] = useState<AccountingRecord | null>(null)
 
   // 處理記帳數據
   const processAccountingData = (content: string) => {
@@ -475,28 +490,108 @@ export default function RecordsPage() {
             </div>
             <div className="space-y-4">
               {wishesWithProgress.length > 0 ? (
-                wishesWithProgress.map((wish) => (
-                  <div key={wish.id || wish.name} className="p-4 rounded-lg bg-accent/20 border border-border">
-                    <div className="flex items-start justify-between mb-2">
-                      <div>
-                        <h3 className="font-medium text-foreground">{wish.name}</h3>
-                        <p className="text-sm text-muted-foreground">
-                          目標：NT$ {wish.targetAmount.toLocaleString()}
-                        </p>
+                wishesWithProgress.map((wish) => {
+                  const isEditing = editingWishId === (wish.id || wish.name)
+                  const wishData = isEditing ? editingWishData : wish
+                  const currentSavedValue = isEditing 
+                    ? (editingWishData?.currentSaved || 0)
+                    : wish.currentSaved
+                  const progress = wish.targetAmount > 0 ? (currentSavedValue / wish.targetAmount) * 100 : 0
+                  const stillNeeded = Math.max(0, wish.targetAmount - currentSavedValue)
+
+                  return (
+                    <div key={wish.id || wish.name} className="p-4 rounded-lg bg-accent/20 border border-border">
+                      <div className="flex items-start justify-between mb-2">
+                        <div className="flex-1">
+                          <h3 className="font-medium text-foreground">{wish.name}</h3>
+                          <p className="text-sm text-muted-foreground">
+                            目標：NT$ {wish.targetAmount.toLocaleString()}
+                          </p>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <span className="text-sm font-medium text-primary">
+                            {Math.round(progress)}%
+                          </span>
+                          {!isEditing ? (
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-8 w-8"
+                              onClick={() => {
+                                setEditingWishId(wish.id || wish.name)
+                                setEditingWishData({ ...wish, currentSaved: wish.currentSaved })
+                              }}
+                            >
+                              <Edit className="w-4 h-4" />
+                            </Button>
+                          ) : (
+                            <div className="flex gap-1">
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                className="h-8 w-8 text-green-600 hover:text-green-700"
+                                onClick={() => {
+                                  // 保存修改
+                                  const updatedWishes = wishes.map((w: any) => {
+                                    if ((w.id || w.name) === (wish.id || wish.name)) {
+                                      return {
+                                        ...w,
+                                        currentSaved: editingWishData.currentSaved.toLocaleString("zh-TW"),
+                                      }
+                                    }
+                                    return w
+                                  })
+                                  localStorage.setItem("wishes", JSON.stringify(updatedWishes))
+                                  setWishes(updatedWishes)
+                                  setEditingWishId(null)
+                                  setEditingWishData(null)
+                                }}
+                              >
+                                <Save className="w-4 h-4" />
+                              </Button>
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                className="h-8 w-8 text-red-600 hover:text-red-700"
+                                onClick={() => {
+                                  setEditingWishId(null)
+                                  setEditingWishData(null)
+                                }}
+                              >
+                                <X className="w-4 h-4" />
+                              </Button>
+                            </div>
+                          )}
+                        </div>
                       </div>
-                      <span className="text-sm font-medium text-primary">
-                        {Math.round(wish.progress)}%
-                      </span>
-                    </div>
-                    <Progress value={wish.progress} className="mb-2 h-2" />
-                    <div className="flex justify-between text-xs text-muted-foreground">
-                      <span>已完成：NT$ {wish.currentSaved.toLocaleString()}</span>
-                      {wish.stillNeeded > 0 && (
-                        <span>還需要：NT$ {wish.stillNeeded.toLocaleString()}</span>
+                      {isEditing ? (
+                        <div className="space-y-2">
+                          <Label htmlFor={`wish-${wish.id}`} className="text-xs">已完成金額</Label>
+                          <Input
+                            id={`wish-${wish.id}`}
+                            type="number"
+                            value={editingWishData.currentSaved}
+                            onChange={(e) => {
+                              const value = parseFloat(e.target.value) || 0
+                              setEditingWishData({ ...editingWishData, currentSaved: value })
+                            }}
+                            className="w-full"
+                          />
+                        </div>
+                      ) : (
+                        <>
+                          <Progress value={progress} className="mb-2 h-2" />
+                          <div className="flex justify-between text-xs text-muted-foreground">
+                            <span>已完成：NT$ {currentSavedValue.toLocaleString()}</span>
+                            {stillNeeded > 0 && (
+                              <span>還需要：NT$ {stillNeeded.toLocaleString()}</span>
+                            )}
+                          </div>
+                        </>
                       )}
                     </div>
-                  </div>
-                ))
+                  )
+                })
               ) : (
                 <p className="text-sm text-muted-foreground text-center py-4">
                   尚未設定夢想，請先完成夢想規劃
@@ -507,9 +602,50 @@ export default function RecordsPage() {
 
           {/* 緊急預備金狀況 */}
           <Card className="p-6">
-            <div className="flex items-center gap-3 mb-6">
-              <PiggyBank className="w-6 h-6 text-primary" />
-              <h2 className="text-xl font-semibold text-foreground">緊急預備金狀況</h2>
+            <div className="flex items-center justify-between mb-6">
+              <div className="flex items-center gap-3">
+                <PiggyBank className="w-6 h-6 text-primary" />
+                <h2 className="text-xl font-semibold text-foreground">緊急預備金狀況</h2>
+              </div>
+              {!editingEmergency ? (
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-8 w-8"
+                  onClick={() => {
+                    setEditingEmergency(true)
+                    setEditingEmergencyAmount(totalEmergencySavings)
+                  }}
+                >
+                  <Edit className="w-4 h-4" />
+                </Button>
+              ) : (
+                <div className="flex gap-1">
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-8 w-8 text-green-600 hover:text-green-700"
+                    onClick={() => {
+                      // 保存修改
+                      localStorage.setItem("availableSavings", editingEmergencyAmount.toString())
+                      setAvailableSavings(editingEmergencyAmount)
+                      setEditingEmergency(false)
+                    }}
+                  >
+                    <Save className="w-4 h-4" />
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-8 w-8 text-red-600 hover:text-red-700"
+                    onClick={() => {
+                      setEditingEmergency(false)
+                    }}
+                  >
+                    <X className="w-4 h-4" />
+                  </Button>
+                </div>
+              )}
             </div>
             <div className="p-4 rounded-lg bg-primary/10 border border-primary/20">
               <div className="flex justify-between items-center mb-2">
@@ -518,24 +654,61 @@ export default function RecordsPage() {
                   NT$ {emergencyTarget.toLocaleString()}
                 </span>
               </div>
-              <Progress value={emergencyProgress} className="mb-2 h-3" />
-              <div className="flex justify-between items-center mb-4">
-                <span className="text-sm text-muted-foreground">目前金額</span>
-                <span className="text-lg font-bold text-primary">
-                  NT$ {totalEmergencySavings.toLocaleString()}
-                </span>
-              </div>
-              {emergencyStillNeeded > 0 ? (
-                <div className="p-3 rounded-lg bg-orange-50 border border-orange-200">
-                  <p className="text-sm text-orange-800">
-                    還需要 NT$ {emergencyStillNeeded.toLocaleString()} 才能達成目標
-                  </p>
+              {editingEmergency ? (
+                <div className="space-y-2 mb-4">
+                  <Label htmlFor="emergency-amount" className="text-xs">目前金額</Label>
+                  <Input
+                    id="emergency-amount"
+                    type="number"
+                    value={editingEmergencyAmount}
+                    onChange={(e) => {
+                      setEditingEmergencyAmount(parseFloat(e.target.value) || 0)
+                    }}
+                    className="w-full"
+                  />
                 </div>
               ) : (
-                <div className="p-3 rounded-lg bg-green-50 border border-green-200">
-                  <p className="text-sm text-green-800">✓ 緊急預備金已達成目標</p>
-                </div>
+                <>
+                  <Progress value={emergencyProgress} className="mb-2 h-3" />
+                  <div className="flex justify-between items-center mb-4">
+                    <span className="text-sm text-muted-foreground">目前金額</span>
+                    <span className="text-lg font-bold text-primary">
+                      NT$ {totalEmergencySavings.toLocaleString()}
+                    </span>
+                  </div>
+                </>
               )}
+              {(() => {
+                const currentAmount = editingEmergency ? editingEmergencyAmount : totalEmergencySavings
+                const stillNeeded = Math.max(0, emergencyTarget - currentAmount)
+                const progress = emergencyTarget > 0 ? (currentAmount / emergencyTarget) * 100 : 0
+                
+                if (!editingEmergency) {
+                  return emergencyStillNeeded > 0 ? (
+                    <div className="p-3 rounded-lg bg-orange-50 border border-orange-200">
+                      <p className="text-sm text-orange-800">
+                        還需要 NT$ {emergencyStillNeeded.toLocaleString()} 才能達成目標
+                      </p>
+                    </div>
+                  ) : (
+                    <div className="p-3 rounded-lg bg-green-50 border border-green-200">
+                      <p className="text-sm text-green-800">✓ 緊急預備金已達成目標</p>
+                    </div>
+                  )
+                } else {
+                  return stillNeeded > 0 ? (
+                    <div className="p-3 rounded-lg bg-orange-50 border border-orange-200">
+                      <p className="text-sm text-orange-800">
+                        還需要 NT$ {stillNeeded.toLocaleString()} 才能達成目標
+                      </p>
+                    </div>
+                  ) : (
+                    <div className="p-3 rounded-lg bg-green-50 border border-green-200">
+                      <p className="text-sm text-green-800">✓ 緊急預備金已達成目標</p>
+                    </div>
+                  )
+                }
+              })()}
             </div>
           </Card>
         </div>
@@ -576,38 +749,195 @@ export default function RecordsPage() {
 
           {filteredRecords.length > 0 ? (
             <div className="space-y-2">
-              {filteredRecords.map((record, index) => (
-                <div
-                  key={`${record.id}-${index}`}
-                  className="p-4 rounded-lg border border-border hover:bg-accent/20 transition-colors"
-                >
-                  <div className="flex items-center justify-between">
-                    <div className="flex-1">
-                      <div className="flex items-center gap-3 mb-1">
-                        <Calendar className="w-4 h-4 text-muted-foreground" />
-                        <span className="text-sm text-muted-foreground">
-                          {new Date(record.date).toLocaleDateString("zh-TW", {
-                            year: "numeric",
-                            month: "2-digit",
-                            day: "2-digit",
-                          })}
-                        </span>
-                        <span className="text-xs px-2 py-0.5 rounded bg-accent/50 text-muted-foreground">
-                          {record.category} - {record.subCategory}
-                        </span>
+              {filteredRecords.map((record, index) => {
+                const isEditing = editingRecordId === record.id
+                const recordData = isEditing ? editingRecordData : record
+
+                return (
+                  <div
+                    key={`${record.id}-${index}`}
+                    className="p-4 rounded-lg border border-border hover:bg-accent/20 transition-colors"
+                  >
+                    {isEditing ? (
+                      <div className="space-y-3">
+                        <div className="grid grid-cols-2 gap-3">
+                          <div>
+                            <Label htmlFor={`record-date-${record.id}`} className="text-xs">日期</Label>
+                            <Input
+                              id={`record-date-${record.id}`}
+                              type="date"
+                              value={editingRecordData?.date || ""}
+                              onChange={(e) => {
+                                setEditingRecordData({
+                                  ...editingRecordData!,
+                                  date: e.target.value,
+                                })
+                              }}
+                              className="w-full"
+                            />
+                          </div>
+                          <div>
+                            <Label htmlFor={`record-amount-${record.id}`} className="text-xs">金額</Label>
+                            <Input
+                              id={`record-amount-${record.id}`}
+                              type="number"
+                              value={editingRecordData?.amount || 0}
+                              onChange={(e) => {
+                                setEditingRecordData({
+                                  ...editingRecordData!,
+                                  amount: parseFloat(e.target.value) || 0,
+                                })
+                              }}
+                              className="w-full"
+                            />
+                          </div>
+                        </div>
+                        <div>
+                          <Label htmlFor={`record-desc-${record.id}`} className="text-xs">描述</Label>
+                          <Input
+                            id={`record-desc-${record.id}`}
+                            type="text"
+                            value={editingRecordData?.description || ""}
+                            onChange={(e) => {
+                              setEditingRecordData({
+                                ...editingRecordData!,
+                                description: e.target.value,
+                              })
+                            }}
+                            className="w-full"
+                          />
+                        </div>
+                        <div>
+                          <Label htmlFor={`record-type-${record.id}`} className="text-xs">類型</Label>
+                          <Select
+                            value={editingRecordData?.type || "expense"}
+                            onValueChange={(value: "income" | "expense") => {
+                              setEditingRecordData({
+                                ...editingRecordData!,
+                                type: value,
+                              })
+                            }}
+                          >
+                            <SelectTrigger id={`record-type-${record.id}`} className="w-full">
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="income">收入</SelectItem>
+                              <SelectItem value="expense">支出</SelectItem>
+                            </SelectContent>
+                          </Select>
+                        </div>
+                        <div className="grid grid-cols-2 gap-3">
+                          <div>
+                            <Label htmlFor={`record-category-${record.id}`} className="text-xs">主分類</Label>
+                            <Input
+                              id={`record-category-${record.id}`}
+                              type="text"
+                              value={editingRecordData?.category || ""}
+                              onChange={(e) => {
+                                setEditingRecordData({
+                                  ...editingRecordData!,
+                                  category: e.target.value,
+                                })
+                              }}
+                              className="w-full"
+                            />
+                          </div>
+                          <div>
+                            <Label htmlFor={`record-subcategory-${record.id}`} className="text-xs">子分類</Label>
+                            <Input
+                              id={`record-subcategory-${record.id}`}
+                              type="text"
+                              value={editingRecordData?.subCategory || ""}
+                              onChange={(e) => {
+                                setEditingRecordData({
+                                  ...editingRecordData!,
+                                  subCategory: e.target.value,
+                                })
+                              }}
+                              className="w-full"
+                            />
+                          </div>
+                        </div>
+                        <div className="flex gap-2 justify-end">
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="text-green-600 hover:text-green-700"
+                            onClick={() => {
+                              // 保存修改
+                              const updatedRecords = records.map((r) => {
+                                if (r.id === record.id) {
+                                  return editingRecordData!
+                                }
+                                return r
+                              })
+                              localStorage.setItem("accountingRecords", JSON.stringify(updatedRecords))
+                              setRecords(updatedRecords)
+                              setEditingRecordId(null)
+                              setEditingRecordData(null)
+                            }}
+                          >
+                            <Save className="w-4 h-4 mr-1" />
+                            保存
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="text-red-600 hover:text-red-700"
+                            onClick={() => {
+                              setEditingRecordId(null)
+                              setEditingRecordData(null)
+                            }}
+                          >
+                            <X className="w-4 h-4 mr-1" />
+                            取消
+                          </Button>
+                        </div>
                       </div>
-                      <p className="font-medium text-foreground">{record.description}</p>
-                    </div>
-                    <p
-                      className={`text-lg font-bold ${
-                        record.type === "income" ? "text-green-600" : "text-red-600"
-                      }`}
-                    >
-                      {record.type === "income" ? "+" : "-"}NT$ {record.amount.toLocaleString()}
-                    </p>
+                    ) : (
+                      <div className="flex items-center justify-between">
+                        <div className="flex-1">
+                          <div className="flex items-center gap-3 mb-1">
+                            <Calendar className="w-4 h-4 text-muted-foreground" />
+                            <span className="text-sm text-muted-foreground">
+                              {new Date(recordData.date).toLocaleDateString("zh-TW", {
+                                year: "numeric",
+                                month: "2-digit",
+                                day: "2-digit",
+                              })}
+                            </span>
+                            <span className="text-xs px-2 py-0.5 rounded bg-accent/50 text-muted-foreground">
+                              {recordData.category} - {recordData.subCategory}
+                            </span>
+                          </div>
+                          <p className="font-medium text-foreground">{recordData.description}</p>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <p
+                            className={`text-lg font-bold ${
+                              recordData.type === "income" ? "text-green-600" : "text-red-600"
+                            }`}
+                          >
+                            {recordData.type === "income" ? "+" : "-"}NT$ {recordData.amount.toLocaleString()}
+                          </p>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-8 w-8"
+                            onClick={() => {
+                              setEditingRecordId(record.id)
+                              setEditingRecordData({ ...record })
+                            }}
+                          >
+                            <Edit className="w-4 h-4" />
+                          </Button>
+                        </div>
+                      </div>
+                    )}
                   </div>
-                </div>
-              ))}
+                )
+              })}
             </div>
           ) : (
             <div className="text-center py-12">

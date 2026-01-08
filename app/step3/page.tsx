@@ -337,13 +337,13 @@ export default function Step3Page() {
           <Card className="p-6 md:p-8 bg-card/80 backdrop-blur">
             <h2 className="text-xl font-semibold text-foreground mb-6">你的願望實現狀況</h2>
             <div className="space-y-4">
-              {feasibleWishes.map((wish, index) => (
-                <div
-                  key={index}
-                  className="p-4 rounded-lg bg-gradient-to-r from-accent/20 to-secondary/20 border border-border"
-                >
-                  <div className="flex items-start justify-between mb-3">
-                    <div>
+              {feasibleWishes.length > 0 ? (
+                feasibleWishes.map((wish, index) => (
+                  <div
+                    key={index}
+                    className="p-4 rounded-lg bg-gradient-to-r from-accent/20 to-secondary/20 border border-border"
+                  >
+                    <div className="mb-3">
                       <h3 className="font-medium text-foreground mb-1">{wish.name}</h3>
                       <p className="text-sm text-muted-foreground">
                         目標金額：NT$ {wish.amount.toLocaleString()} | 完成時間：{wish.year} 年 {wish.month} 月
@@ -353,38 +353,17 @@ export default function Step3Page() {
                         )}
                       </p>
                     </div>
-                    {!wish.needsSaving && (
-                      <div className="flex items-center gap-2 text-primary">
-                        <CheckCircle2 className="w-5 h-5" />
-                        <span className="text-sm font-medium">可達成</span>
-                      </div>
-                    )}
+                    <Progress value={wish.progress || 0} className="mb-2 h-2" />
+                    <p className="text-xs text-muted-foreground">
+                      目前已完成：NT$ {wish.currentSaved.toLocaleString()} / 目標：NT$ {wish.amount.toLocaleString()}
+                    </p>
                   </div>
-                  <Progress value={wish.progress || 0} className="mb-2 h-2" />
-                  {wish.needsSaving ? (
-                    <>
-                      <p className="text-sm text-muted-foreground">
-                        需要規劃儲蓄計畫
-                        {wish.monthsRemaining > 0 && wish.stillNeeded > 0 && (
-                          <span className="ml-2">
-                            （建議每月存 NT$ {Math.ceil(wish.stillNeeded / wish.monthsRemaining).toLocaleString()}）
-                          </span>
-                        )}
-                      </p>
-                      <p className="text-xs text-muted-foreground mt-1">
-                        目前已完成：NT$ {wish.currentSaved.toLocaleString()} / 目標：NT$ {wish.amount.toLocaleString()}
-                      </p>
-                    </>
-                  ) : (
-                    <>
-                      <p className="text-sm text-primary">預算內可以完成</p>
-                      <p className="text-xs text-muted-foreground mt-1">
-                        目前已完成：NT$ {wish.currentSaved.toLocaleString()} / 目標：NT$ {wish.amount.toLocaleString()}
-                      </p>
-                    </>
-                  )}
-                </div>
-              ))}
+                ))
+              ) : (
+                <p className="text-sm text-muted-foreground text-center py-4">
+                  尚未設定夢想，請先完成夢想規劃
+                </p>
+              )}
             </div>
           </Card>
         </div>

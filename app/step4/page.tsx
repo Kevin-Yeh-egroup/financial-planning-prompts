@@ -20,6 +20,7 @@ export default function Step4Page() {
   const [availableSavings, setAvailableSavings] = useState(0)
   const [monthlyExpenses, setMonthlyExpenses] = useState(33000)
   const [emergencyTarget, setEmergencyTarget] = useState(0)
+  const [flexibleAmount, setFlexibleAmount] = useState(0)
   const [savingsPlans, setSavingsPlans] = useState<any[]>([])
 
   // 從 localStorage 讀取數據
@@ -32,7 +33,7 @@ export default function Step4Page() {
       setAvailableSavings(parseFloat(saved) || 0)
     }
 
-    // 從 step2 讀取每月支出
+    // 從 step2 讀取每月支出和收入
     const step2DataStr = localStorage.getItem("step2Data")
     if (step2DataStr) {
       try {
@@ -43,6 +44,7 @@ export default function Step4Page() {
         const businessFixedExpenses = step2Data.hasBusiness ? (step2Data.businessFixedExpenses || {}) : {}
         const businessExtraExpenses = step2Data.hasBusiness ? (step2Data.businessExtraExpenses || {}) : {}
 
+        // 計算總支出
         const totalFixedExpenses =
           parseFloat(fixedExpenses.housing || "0") +
           parseFloat(fixedExpenses.telecom || "0") +
@@ -87,72 +89,178 @@ export default function Step4Page() {
         const totalExpenses = totalFixedExpenses + totalVariableExpenses + totalBusinessFixedExpenses + totalBusinessVariableExpenses + totalBusinessExtraExpenses
         setMonthlyExpenses(totalExpenses)
         setEmergencyTarget(totalExpenses * 6)
+
+        // 計算總收入
+        const fixedIncome = step2Data.fixedIncome || {}
+        const variableIncome = step2Data.variableIncome || {}
+        const businessIncome = step2Data.hasBusiness ? (step2Data.businessIncome || {}) : {}
+        
+        const totalFixedIncome = 
+          parseFloat(fixedIncome.salary || "0") +
+          parseFloat(fixedIncome.rent || "0") +
+          parseFloat(fixedIncome.investment || "0") +
+          parseFloat(fixedIncome.pension || "0") +
+          parseFloat(fixedIncome.governmentSubsidy || "0")
+        
+        const totalVariableIncome =
+          parseFloat(variableIncome.sideJob || "0") +
+          parseFloat(variableIncome.temporaryWork || "0") +
+          parseFloat(variableIncome.interest || "0") +
+          parseFloat(variableIncome.gift || "0") +
+          parseFloat(variableIncome.other || "0")
+        
+        const totalBusinessIncome = step2Data.hasBusiness
+          ? parseFloat(businessIncome.productSales || "0") +
+            parseFloat(businessIncome.serviceIncome || "0") +
+            parseFloat(businessIncome.equipmentSale || "0") +
+            parseFloat(businessIncome.venueRental || "0") +
+            parseFloat(businessIncome.partnership || "0") +
+            parseFloat(businessIncome.other || "0")
+          : 0
+        
+        const totalIncome = totalFixedIncome + totalVariableIncome + totalBusinessIncome
+        
+        // 計算每月可彈性運用金額
+        const flexible = totalIncome - totalExpenses
+        const calculatedFlexibleAmount = Math.max(0, flexible)
+        setFlexibleAmount(calculatedFlexibleAmount)
+
+        // 從 step1 讀取願望數據（在同一個 useEffect 中，這樣可以使用 calculatedFlexibleAmount）
+        const wishesStr = localStorage.getItem("wishes")
+        if (wishesStr) {
+          try {
+            const wishes = JSON.parse(wishesStr)
+            const currentYear = new Date().getFullYear()
+            const currentMonth = new Date().getMonth() + 1
+
+            // 過濾掉空的願望
+            const validWishes = wishes.filter((wish: any) => wish.name && wish.name.trim() !== "")
+
+            const plans = validWishes.map((wish: any, index: number) => {
+              const targetYear = parseInt(wish.year || currentYear.toString())
+              const targetMonth = parseInt(wish.month || "12")
+              const targetAmount = parseFloat(wish.cost ? wish.cost.replace(/,/g, "") : "0")
+              const currentSaved = parseFloat(wish.currentSaved ? wish.currentSaved.replace(/,/g, "") : "0")
+
+              // 計算剩餘月數
+              let monthsRemaining = 0
+              if (targetYear > currentYear) {
+                monthsRemaining = (targetYear - currentYear - 1) * 12 + (12 - currentMonth) + targetMonth
+              } else if (targetYear === currentYear) {
+                monthsRemaining = Math.max(0, targetMonth - currentMonth)
+              } else {
+                monthsRemaining = 0
+              }
+
+              // 計算還需要多少金額
+              const stillNeeded = Math.max(0, targetAmount - currentSaved)
+
+              // 計算每月需存金額
+              const monthlySaving = monthsRemaining > 0 ? Math.ceil(stillNeeded / monthsRemaining) : stillNeeded
+
+              // 判斷是否可以達成：每月需存金額 <= 每月可彈性運用金額
+              const isFeasible = monthlySaving <= calculatedFlexibleAmount
+
+              // 選擇圖標
+              const IconComponent = iconMap[wish.icon as keyof typeof iconMap] || Heart
+
+              // 選擇顏色（根據索引）
+              const colors = [
+                "from-blue-500/20 to-cyan-500/20",
+                "from-green-500/20 to-emerald-500/20",
+                "from-purple-500/20 to-pink-500/20",
+                "from-orange-500/20 to-red-500/20",
+                "from-yellow-500/20 to-amber-500/20",
+              ]
+              const color = colors[index % colors.length]
+
+              return {
+                name: wish.name,
+                icon: IconComponent,
+                targetAmount,
+                currentSaved,
+                monthsRemaining: Math.max(0, monthsRemaining),
+                monthlySaving,
+                month: `${targetMonth}月`,
+                color,
+                isFeasible,
+              }
+            })
+
+            setSavingsPlans(plans)
+          } catch (e) {
+            console.error("Error parsing wishes", e)
+          }
+        }
       } catch (e) {
         console.error("Error parsing step2Data", e)
       }
     }
 
-    // 從 step1 讀取願望數據
-    const wishesStr = localStorage.getItem("wishes")
-    if (wishesStr) {
-      try {
-        const wishes = JSON.parse(wishesStr)
-        const currentYear = new Date().getFullYear()
-        const currentMonth = new Date().getMonth() + 1
+    // 如果 step2Data 不存在，仍然嘗試讀取願望數據
+    if (!step2DataStr) {
+      const wishesStr = localStorage.getItem("wishes")
+      if (wishesStr) {
+        try {
+          const wishes = JSON.parse(wishesStr)
+          const currentYear = new Date().getFullYear()
+          const currentMonth = new Date().getMonth() + 1
 
-        // 過濾掉空的願望
-        const validWishes = wishes.filter((wish: any) => wish.name && wish.name.trim() !== "")
+          // 過濾掉空的願望
+          const validWishes = wishes.filter((wish: any) => wish.name && wish.name.trim() !== "")
 
-        const plans = validWishes.map((wish: any, index: number) => {
-          const targetYear = parseInt(wish.year || currentYear.toString())
-          const targetMonth = parseInt(wish.month || "12")
-          const targetAmount = parseFloat(wish.cost ? wish.cost.replace(/,/g, "") : "0")
-          const currentSaved = parseFloat(wish.currentSaved ? wish.currentSaved.replace(/,/g, "") : "0")
+          const plans = validWishes.map((wish: any, index: number) => {
+            const targetYear = parseInt(wish.year || currentYear.toString())
+            const targetMonth = parseInt(wish.month || "12")
+            const targetAmount = parseFloat(wish.cost ? wish.cost.replace(/,/g, "") : "0")
+            const currentSaved = parseFloat(wish.currentSaved ? wish.currentSaved.replace(/,/g, "") : "0")
 
-          // 計算剩餘月數
-          let monthsRemaining = 0
-          if (targetYear > currentYear) {
-            monthsRemaining = (targetYear - currentYear - 1) * 12 + (12 - currentMonth) + targetMonth
-          } else if (targetYear === currentYear) {
-            monthsRemaining = Math.max(0, targetMonth - currentMonth)
-          } else {
-            monthsRemaining = 0
-          }
+            // 計算剩餘月數
+            let monthsRemaining = 0
+            if (targetYear > currentYear) {
+              monthsRemaining = (targetYear - currentYear - 1) * 12 + (12 - currentMonth) + targetMonth
+            } else if (targetYear === currentYear) {
+              monthsRemaining = Math.max(0, targetMonth - currentMonth)
+            } else {
+              monthsRemaining = 0
+            }
 
-          // 計算還需要多少金額
-          const stillNeeded = Math.max(0, targetAmount - currentSaved)
+            // 計算還需要多少金額
+            const stillNeeded = Math.max(0, targetAmount - currentSaved)
 
-          // 計算每月需存金額
-          const monthlySaving = monthsRemaining > 0 ? Math.ceil(stillNeeded / monthsRemaining) : stillNeeded
+            // 計算每月需存金額
+            const monthlySaving = monthsRemaining > 0 ? Math.ceil(stillNeeded / monthsRemaining) : stillNeeded
 
-          // 選擇圖標
-          const IconComponent = iconMap[wish.icon as keyof typeof iconMap] || Heart
+            // 選擇圖標
+            const IconComponent = iconMap[wish.icon as keyof typeof iconMap] || Heart
 
-          // 選擇顏色（根據索引）
-          const colors = [
-            "from-blue-500/20 to-cyan-500/20",
-            "from-green-500/20 to-emerald-500/20",
-            "from-purple-500/20 to-pink-500/20",
-            "from-orange-500/20 to-red-500/20",
-            "from-yellow-500/20 to-amber-500/20",
-          ]
-          const color = colors[index % colors.length]
+            // 選擇顏色（根據索引）
+            const colors = [
+              "from-blue-500/20 to-cyan-500/20",
+              "from-green-500/20 to-emerald-500/20",
+              "from-purple-500/20 to-pink-500/20",
+              "from-orange-500/20 to-red-500/20",
+              "from-yellow-500/20 to-amber-500/20",
+            ]
+            const color = colors[index % colors.length]
 
-          return {
-            name: wish.name,
-            icon: IconComponent,
-            targetAmount,
-            currentSaved,
-            monthsRemaining: Math.max(0, monthsRemaining),
-            monthlySaving,
-            month: `${targetMonth}月`,
-            color,
-          }
-        })
+            return {
+              name: wish.name,
+              icon: IconComponent,
+              targetAmount,
+              currentSaved,
+              monthsRemaining: Math.max(0, monthsRemaining),
+              monthlySaving,
+              month: `${targetMonth}月`,
+              color,
+              isFeasible: false, // 如果沒有 step2Data，無法判斷
+            }
+          })
 
-        setSavingsPlans(plans)
-      } catch (e) {
-        console.error("Error parsing wishes", e)
+          setSavingsPlans(plans)
+        } catch (e) {
+          console.error("Error parsing wishes", e)
+        }
       }
     }
   }, [])
@@ -192,6 +300,8 @@ export default function Step4Page() {
           {savingsPlans.map((plan, index) => {
             const progress = (plan.currentSaved / plan.targetAmount) * 100
             const IconComponent = plan.icon
+            // 使用 plan 中已計算的 isFeasible，如果沒有則使用 flexibleAmount 判斷
+            const isFeasible = plan.isFeasible !== undefined ? plan.isFeasible : (plan.monthlySaving <= flexibleAmount)
             return (
               <Card
                 key={index}
@@ -202,7 +312,19 @@ export default function Step4Page() {
                     <IconComponent className="w-8 h-8 text-primary" />
                   </div>
                   <div className="flex-1">
-                    <h2 className="text-2xl font-semibold text-foreground mb-2">{plan.name}</h2>
+                    <div className="flex items-center justify-between mb-2">
+                      <h2 className="text-2xl font-semibold text-foreground">{plan.name}</h2>
+                      {isFeasible ? (
+                        <div className="flex items-center gap-2 text-primary bg-primary/10 px-3 py-1 rounded-full">
+                          <CheckCircle2 className="w-4 h-4" />
+                          <span className="text-sm font-medium">可達成</span>
+                        </div>
+                      ) : (
+                        <div className="flex items-center gap-2 text-muted-foreground bg-accent/50 px-3 py-1 rounded-full">
+                          <span className="text-sm font-medium">需規劃</span>
+                        </div>
+                      )}
+                    </div>
                     <div className="flex items-center gap-2 text-muted-foreground">
                       <Calendar className="w-4 h-4" />
                       <span className="text-sm">目標完成時間：{plan.month}</span>
@@ -234,14 +356,30 @@ export default function Step4Page() {
                     <p className="text-xs text-muted-foreground mb-1">剩餘時間</p>
                     <p className="text-lg font-semibold text-foreground">{plan.monthsRemaining} 個月</p>
                   </div>
-                  <div className="p-4 rounded-lg bg-primary/10 backdrop-blur border border-primary/20">
+                  <div className={`p-4 rounded-lg backdrop-blur border ${isFeasible ? 'bg-primary/10 border-primary/20' : 'bg-destructive/10 border-destructive/20'}`}>
                     <div className="flex items-center gap-1 mb-1">
-                      <TrendingUp className="w-3 h-3 text-primary" />
-                      <p className="text-xs text-primary font-medium">每個月需存</p>
+                      <TrendingUp className={`w-3 h-3 ${isFeasible ? 'text-primary' : 'text-destructive'}`} />
+                      <p className={`text-xs font-medium ${isFeasible ? 'text-primary' : 'text-destructive'}`}>每個月需存</p>
                     </div>
-                    <p className="text-lg font-bold text-primary">NT$ {plan.monthlySaving.toLocaleString()}</p>
+                    <p className={`text-lg font-bold ${isFeasible ? 'text-primary' : 'text-destructive'}`}>NT$ {plan.monthlySaving.toLocaleString()}</p>
                   </div>
                 </div>
+
+                {/* Feasibility Message */}
+                {!isFeasible && (
+                  <div className="mt-4 p-3 rounded-lg bg-destructive/10 border border-destructive/20">
+                    <p className="text-sm text-destructive">
+                      ⚠️ 每月需存金額（NT$ {plan.monthlySaving.toLocaleString()}）超過可彈性運用金額（NT$ {flexibleAmount.toLocaleString()}），需要調整目標時間或金額。
+                    </p>
+                  </div>
+                )}
+                {isFeasible && (
+                  <div className="mt-4 p-3 rounded-lg bg-primary/10 border border-primary/20">
+                    <p className="text-sm text-primary">
+                      ✓ 每月需存金額在可彈性運用範圍內，可以達成目標。
+                    </p>
+                  </div>
+                )}
               </Card>
             )
           })}
@@ -287,3 +425,4 @@ export default function Step4Page() {
     </main>
   )
 }
+
