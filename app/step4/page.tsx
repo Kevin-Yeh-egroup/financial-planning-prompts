@@ -8,6 +8,7 @@ import { Progress } from "@/components/ui/progress"
 import { Plane, GraduationCap, Home, Gift, ShoppingBag, Heart, Calendar, TrendingUp, CheckCircle2, Lightbulb, Wallet, ArrowUp, ArrowDown, GripVertical, Input as InputIcon } from "lucide-react"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 
 const iconMap: { [key: string]: any } = {
   travel: Plane,
@@ -78,7 +79,7 @@ export default function Step4Page() {
     saveAllocationsToStorage(updated)
   }
 
-  // 保存分配金額到localStorage
+  // 保存分配金額和時間到localStorage
   const saveAllocationsToStorage = (plans: any[]) => {
     if (typeof window === "undefined") return
     const wishesStr = localStorage.getItem("wishes")
@@ -92,6 +93,8 @@ export default function Step4Page() {
               ...wish,
               priority: plan.priority,
               allocatedAmount: plan.allocatedAmount || 0,
+              year: plan.year || wish.year,
+              month: plan.targetMonth?.toString() || wish.month,
             }
           }
           return wish
@@ -101,6 +104,50 @@ export default function Step4Page() {
         console.error("Error saving allocations", e)
       }
     }
+  }
+
+  // 處理完成時間調整
+  const handleTimeChange = (index: number, field: "year" | "month", value: string) => {
+    const updated = [...savingsPlans]
+    const currentYear = new Date().getFullYear()
+    const currentMonth = new Date().getMonth() + 1
+    
+    if (field === "year") {
+      updated[index].year = value
+    } else {
+      updated[index].targetMonth = parseInt(value)
+      updated[index].month = `${value}月`
+    }
+    
+    // 重新計算剩餘月數
+    const targetYear = parseInt(updated[index].year || currentYear.toString())
+    const targetMonth = updated[index].targetMonth || 12
+    let monthsRemaining = 0
+    if (targetYear > currentYear) {
+      monthsRemaining = (targetYear - currentYear - 1) * 12 + (12 - currentMonth) + targetMonth
+    } else if (targetYear === currentYear) {
+      monthsRemaining = Math.max(0, targetMonth - currentMonth)
+    } else {
+      monthsRemaining = 0
+    }
+    
+    updated[index].monthsRemaining = Math.max(0, monthsRemaining)
+    
+    // 重新計算每月需存金額
+    const stillNeeded = updated[index].targetAmount - updated[index].currentSaved
+    if (updated[index].allocatedAmount > 0) {
+      updated[index].monthlySaving = updated[index].allocatedAmount
+      updated[index].monthsNeededWithAllocation = Math.ceil(stillNeeded / updated[index].allocatedAmount)
+    } else {
+      updated[index].monthlySaving = monthsRemaining > 0 ? Math.ceil(stillNeeded / monthsRemaining) : stillNeeded
+      updated[index].monthsNeededWithAllocation = monthsRemaining
+    }
+    
+    // 重新判斷是否可以達成
+    updated[index].isFeasible = updated[index].monthlySaving <= flexibleAmount
+    
+    setSavingsPlans(updated)
+    saveAllocationsToStorage(updated)
   }
 
   // 調整優先級（向上移動）
@@ -308,6 +355,8 @@ export default function Step4Page() {
                 monthsRemaining: Math.max(0, monthsRemaining),
                 monthlySaving,
                 month: `${targetMonth}月`,
+                year: targetYear.toString(),
+                targetMonth: targetMonth,
                 color,
                 isFeasible,
                 priority: wish.priority || index + 1,
@@ -390,21 +439,23 @@ export default function Step4Page() {
               ]
               const color = colors[index % colors.length]
 
-              return {
-                name: wish.name,
-                icon: IconComponent,
-                targetAmount,
-                currentSaved,
-                monthsRemaining: Math.max(0, monthsRemaining),
-                monthlySaving,
-                month: `${targetMonth}月`,
-                color,
-                isFeasible: false, // 如果沒有 step2Data，無法判斷
-                priority: wish.priority || index + 1,
-                allocatedAmount: allocatedAmount,
-                allocatedAmountFormatted: allocatedAmount > 0 ? allocatedAmount.toLocaleString("zh-TW") : "",
-                monthsNeededWithAllocation: monthsNeededWithAllocation,
-              }
+            return {
+              name: wish.name,
+              icon: IconComponent,
+              targetAmount,
+              currentSaved,
+              monthsRemaining: Math.max(0, monthsRemaining),
+              monthlySaving,
+              month: `${targetMonth}月`,
+              year: targetYear.toString(),
+              targetMonth: targetMonth,
+              color,
+              isFeasible: false, // 如果沒有 step2Data，無法判斷
+              priority: wish.priority || index + 1,
+              allocatedAmount: allocatedAmount,
+              allocatedAmountFormatted: allocatedAmount > 0 ? allocatedAmount.toLocaleString("zh-TW") : "",
+              monthsNeededWithAllocation: monthsNeededWithAllocation,
+            }
             })
 
           setSavingsPlans(plans)
@@ -602,12 +653,46 @@ export default function Step4Page() {
                     </p>
                   </div>
                   <div className="p-4 rounded-lg bg-card/60 backdrop-blur">
-                    <p className="text-xs text-muted-foreground mb-1">剩餘時間</p>
-                    <p className="text-lg font-semibold text-foreground">
-                      {plan.allocatedAmount > 0 && plan.monthsNeededWithAllocation 
-                        ? `${plan.monthsNeededWithAllocation} 個月（依分配）`
-                        : `${plan.monthsRemaining} 個月（原目標）`}
-                    </p>
+                    <p className="text-xs text-muted-foreground mb-2">完成時間</p>
+                    <div className="space-y-2">
+                      <div className="flex items-center gap-2">
+                        <Select 
+                          value={plan.year || new Date().getFullYear().toString()} 
+                          onValueChange={(value) => handleTimeChange(index, "year", value)}
+                        >
+                          <SelectTrigger className="h-8 text-sm">
+                            <SelectValue placeholder="選擇年份" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {Array.from({ length: 10 }, (_, i) => new Date().getFullYear() + i).map((year) => (
+                              <SelectItem key={year} value={year.toString()}>
+                                {year} 年
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                        <Select 
+                          value={plan.targetMonth?.toString() || "12"} 
+                          onValueChange={(value) => handleTimeChange(index, "month", value)}
+                        >
+                          <SelectTrigger className="h-8 text-sm">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {Array.from({ length: 12 }, (_, i) => i + 1).map((month) => (
+                              <SelectItem key={month} value={month.toString()}>
+                                {month} 月
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      <p className="text-xs text-muted-foreground">
+                        {plan.allocatedAmount > 0 && plan.monthsNeededWithAllocation 
+                          ? `依分配約需 ${plan.monthsNeededWithAllocation} 個月`
+                          : `剩餘 ${plan.monthsRemaining} 個月`}
+                      </p>
+                    </div>
                   </div>
                   <div className={`p-4 rounded-lg backdrop-blur border ${isFeasible ? 'bg-primary/10 border-primary/20' : 'bg-destructive/10 border-destructive/20'}`}>
                     <div className="flex items-center gap-1 mb-1">
@@ -631,7 +716,7 @@ export default function Step4Page() {
                     <p className="text-sm text-destructive leading-relaxed">
                       每月需存金額（NT$ {plan.monthlySaving.toLocaleString()}）超過可彈性運用金額（NT$ {flexibleAmount.toLocaleString()}）。
                       <br />
-                      <span className="font-semibold">若無法增加收入或降低支出，夢想難以達成。</span>
+                      <span className="font-semibold">若無法增加收入、降低支出或調整完成時間，夢想將難以達成。</span>
                     </p>
                   </div>
                 )}

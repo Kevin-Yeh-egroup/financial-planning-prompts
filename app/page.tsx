@@ -18,7 +18,7 @@ export default function HomePage() {
           <p className="text-lg md:text-xl text-muted-foreground max-w-2xl mx-auto leading-relaxed text-pretty">
             年終獎金、旅遊、紅包、學費、保險
             <br />
-            我們幫你把願望排好順序，不再月底才後悔。
+            我們幫你把願望排好順序，不再年底才後悔。
           </p>
         </div>
 
@@ -26,32 +26,32 @@ export default function HomePage() {
         <Card className="max-w-4xl mx-auto mb-12 p-8 md:p-12 bg-gradient-to-br from-orange-100 to-pink-100 border-orange-200/50">
           <div className="grid md:grid-cols-2 gap-8 items-center">
             <div className="space-y-6">
-              <div className="flex items-center gap-4 p-4 rounded-lg bg-pink-100/70">
-                <Plane className="w-8 h-8 text-pink-500" />
+              <div className="flex items-center gap-6 p-6 rounded-lg bg-pink-100/70">
+                <Plane className="w-12 h-12 text-pink-500" />
                 <div>
-                  <p className="font-medium text-foreground">家庭旅遊</p>
-                  <p className="text-sm text-muted-foreground">想和家人一起出國</p>
+                  <p className="text-xl font-semibold text-foreground">家庭旅遊</p>
+                  <p className="text-base text-muted-foreground">想和家人一起出國</p>
                 </div>
               </div>
-              <div className="flex items-center gap-4 p-4 rounded-lg bg-orange-100/70">
-                <GraduationCap className="w-8 h-8 text-orange-500" />
+              <div className="flex items-center gap-6 p-6 rounded-lg bg-orange-100/70">
+                <GraduationCap className="w-12 h-12 text-orange-500" />
                 <div>
-                  <p className="font-medium text-foreground">孩子教育</p>
-                  <p className="text-sm text-muted-foreground">學費和才藝費用</p>
+                  <p className="text-xl font-semibold text-foreground">孩子教育</p>
+                  <p className="text-base text-muted-foreground">學費和才藝費用</p>
                 </div>
               </div>
-              <div className="flex items-center gap-4 p-4 rounded-lg bg-pink-50/70">
-                <Home className="w-8 h-8 text-pink-400" />
+              <div className="flex items-center gap-6 p-6 rounded-lg bg-pink-50/70">
+                <Home className="w-12 h-12 text-pink-400" />
                 <div>
-                  <p className="font-medium text-foreground">家電更新</p>
-                  <p className="text-sm text-muted-foreground">冰箱該換了</p>
+                  <p className="text-xl font-semibold text-foreground">家電更新</p>
+                  <p className="text-base text-muted-foreground">冰箱該換了</p>
                 </div>
               </div>
-              <div className="flex items-center gap-4 p-4 rounded-lg bg-orange-50/70">
-                <Gift className="w-8 h-8 text-orange-400" />
+              <div className="flex items-center gap-6 p-6 rounded-lg bg-orange-50/70">
+                <Gift className="w-12 h-12 text-orange-400" />
                 <div>
-                  <p className="font-medium text-foreground">節慶紅包</p>
-                  <p className="text-sm text-muted-foreground">過年給長輩的心意</p>
+                  <p className="text-xl font-semibold text-foreground">節慶紅包</p>
+                  <p className="text-base text-muted-foreground">過年給長輩的心意</p>
                 </div>
               </div>
             </div>

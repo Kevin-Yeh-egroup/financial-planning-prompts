@@ -10,7 +10,7 @@ const _geistMono = Geist_Mono({ subsets: ["latin"] })
 
 export const metadata: Metadata = {
   title: "夢想達成財務管理系統",
-  description: "幫你把願望排好順序，不再月底才後悔",
+  description: "幫你把願望排好順序，不再年底才後悔",
   generator: "v0.app",
   icons: {
     icon: [
