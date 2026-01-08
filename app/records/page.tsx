@@ -760,40 +760,9 @@ export default function RecordsPage() {
   // 從 localStorage 讀取記帳記錄
   useEffect(() => {
     if (typeof window !== "undefined") {
-      const saved = localStorage.getItem("accountingRecords")
-      if (saved) {
-        try {
-          const parsedRecords = JSON.parse(saved)
-          // 確保所有記錄都有唯一的 id
-          const recordsWithUniqueIds = parsedRecords.map((record: AccountingRecord, index: number) => {
-            // 如果 id 不存在或為空，生成一個新的唯一 id
-            if (!record.id || record.id.trim() === "") {
-              return {
-                ...record,
-                id: `record-${Date.now()}-${index}`,
-              }
-            }
-            // 檢查是否有重複的 id，如果有則生成新的
-            const duplicateCount = parsedRecords.slice(0, index).filter((r: AccountingRecord) => r.id === record.id).length
-            if (duplicateCount > 0) {
-              return {
-                ...record,
-                id: `${record.id}-${duplicateCount + 1}`,
-              }
-            }
-            return record
-          })
-          
-          // 不再自動添加demo數據，只使用實際的記帳記錄
-          setRecords(recordsWithUniqueIds)
-        } catch (e) {
-          console.error("Error parsing accounting records", e)
-        }
-      } else {
-        // 如果沒有記錄，初始化為空數組（不自動添加demo數據）
-        setRecords([])
-        localStorage.setItem("accountingRecords", JSON.stringify([]))
-      }
+      // 清空所有記帳記錄，只保留 step1-step6 的實際數據
+      localStorage.setItem("accountingRecords", JSON.stringify([]))
+      setRecords([])
 
       // 讀取願望數據
       const wishesStr = localStorage.getItem("wishes")
