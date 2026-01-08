@@ -513,17 +513,27 @@ export default function Step6Page() {
         </Card>
 
         {/* Consultation */}
-        <Card className="p-6 md:p-8 bg-gradient-to-br from-primary/5 to-secondary/5 border-primary/20">
-          <div className="flex items-start gap-4">
-            <div className="w-12 h-12 rounded-xl bg-card/80 backdrop-blur flex items-center justify-center flex-shrink-0">
-              <MessageSquare className="w-6 h-6 text-primary" />
-            </div>
+        <Card className="p-8 md:p-12 bg-gradient-to-br from-primary/5 to-secondary/5 border-primary/20">
+          <div className="grid md:grid-cols-2 gap-8 items-center">
+            {/* 左側：文字敘述 */}
             <div className="flex-1">
-              <h3 className="text-xl font-semibold text-foreground mb-2">需要進一步的專業建議？</h3>
-              <p className="text-muted-foreground mb-4 leading-relaxed">
+              <div className="flex items-center gap-4 mb-4">
+                <div className="w-16 h-16 rounded-xl bg-card/80 backdrop-blur flex items-center justify-center flex-shrink-0">
+                  <MessageSquare className="w-8 h-8 text-primary" />
+                </div>
+                <h3 className="text-2xl md:text-3xl font-semibold text-foreground">需要進一步的專業建議？</h3>
+              </div>
+              <p className="text-lg md:text-xl text-muted-foreground leading-relaxed">
                 如果你想要更細緻的規劃、投資建議，或是有複雜的家庭財務狀況需要討論，我們的理財顧問可以幫助你。
               </p>
-              <Button variant="outline" className="bg-card/60">
+            </div>
+            {/* 右側：預約按鈕 */}
+            <div className="flex-1 flex items-center justify-center md:justify-end">
+              <Button 
+                variant="outline" 
+                size="lg"
+                className="bg-card/60 text-lg px-8 py-6 h-auto rounded-xl min-w-[200px] md:min-w-[250px]"
+              >
                 預約免費諮詢
               </Button>
             </div>

@@ -48,8 +48,10 @@ export default function Step2Page() {
     // 移除所有非數字字符
     const numValue = value.replace(/\D/g, "")
     if (!numValue) return ""
-    // 轉換為數字並格式化
-    return parseInt(numValue).toLocaleString("zh-TW")
+    // 轉換為數字並格式化，使用 Number 而不是 parseInt 以避免精度問題
+    const num = Number(numValue)
+    if (isNaN(num)) return ""
+    return num.toLocaleString("zh-TW")
   }
 
   // 解析格式化後的數字（移除千分位號）
@@ -57,8 +59,23 @@ export default function Step2Page() {
     return value.replace(/,/g, "")
   }
 
-  // 處理輸入變化，自動格式化
+  // 處理輸入變化，只在失去焦點時格式化，輸入時保持原始數字
   const handleNumberChange = (value: string, setter: (value: string) => void) => {
+    // 只允許數字和逗號輸入
+    const cleaned = value.replace(/[^\d,]/g, "")
+    // 移除逗號，只保留數字
+    const numValue = cleaned.replace(/,/g, "")
+    // 如果為空，直接設置為空字符串
+    if (!numValue) {
+      setter("")
+      return
+    }
+    // 輸入時不格式化，保持原始數字，讓用戶可以正常輸入
+    setter(numValue)
+  }
+
+  // 處理失去焦點時格式化
+  const handleNumberBlur = (value: string, setter: (value: string) => void) => {
     const parsed = parseNumber(value)
     const formatted = formatNumber(parsed)
     setter(formatted)
@@ -152,8 +169,20 @@ export default function Step2Page() {
     })
   }
 
+  const updateFixedIncomeBlur = (field: string, value: string) => {
+    handleNumberBlur(value, (formatted) => {
+      setFixedIncome({ ...fixedIncome, [field]: formatted })
+    })
+  }
+
   const updateVariableIncome = (field: string, value: string) => {
     handleNumberChange(value, (formatted) => {
+      setVariableIncome({ ...variableIncome, [field]: formatted })
+    })
+  }
+
+  const updateVariableIncomeBlur = (field: string, value: string) => {
+    handleNumberBlur(value, (formatted) => {
       setVariableIncome({ ...variableIncome, [field]: formatted })
     })
   }
@@ -164,26 +193,70 @@ export default function Step2Page() {
     })
   }
 
+  const updateFixedExpensesBlur = (field: string, value: string) => {
+    handleNumberBlur(value, (formatted) => {
+      setFixedExpenses({ ...fixedExpenses, [field]: formatted })
+    })
+  }
+
   const updateVariableExpenses = (field: string, value: string) => {
     handleNumberChange(value, (formatted) => {
       setVariableExpenses({ ...variableExpenses, [field]: formatted })
     })
   }
 
+  const updateVariableExpensesBlur = (field: string, value: string) => {
+    handleNumberBlur(value, (formatted) => {
+      setVariableExpenses({ ...variableExpenses, [field]: formatted })
+    })
+  }
+
   const updateBusinessIncome = (field: string, value: string) => {
-    setBusinessIncome({ ...businessIncome, [field]: value })
+    handleNumberChange(value, (formatted) => {
+      setBusinessIncome({ ...businessIncome, [field]: formatted })
+    })
+  }
+
+  const updateBusinessIncomeBlur = (field: string, value: string) => {
+    handleNumberBlur(value, (formatted) => {
+      setBusinessIncome({ ...businessIncome, [field]: formatted })
+    })
   }
 
   const updateBusinessVariableExpenses = (field: string, value: string) => {
-    setBusinessVariableExpenses({ ...businessVariableExpenses, [field]: value })
+    handleNumberChange(value, (formatted) => {
+      setBusinessVariableExpenses({ ...businessVariableExpenses, [field]: formatted })
+    })
+  }
+
+  const updateBusinessVariableExpensesBlur = (field: string, value: string) => {
+    handleNumberBlur(value, (formatted) => {
+      setBusinessVariableExpenses({ ...businessVariableExpenses, [field]: formatted })
+    })
   }
 
   const updateBusinessFixedExpenses = (field: string, value: string) => {
-    setBusinessFixedExpenses({ ...businessFixedExpenses, [field]: value })
+    handleNumberChange(value, (formatted) => {
+      setBusinessFixedExpenses({ ...businessFixedExpenses, [field]: formatted })
+    })
+  }
+
+  const updateBusinessFixedExpensesBlur = (field: string, value: string) => {
+    handleNumberBlur(value, (formatted) => {
+      setBusinessFixedExpenses({ ...businessFixedExpenses, [field]: formatted })
+    })
   }
 
   const updateBusinessExtraExpenses = (field: string, value: string) => {
-    setBusinessExtraExpenses({ ...businessExtraExpenses, [field]: value })
+    handleNumberChange(value, (formatted) => {
+      setBusinessExtraExpenses({ ...businessExtraExpenses, [field]: formatted })
+    })
+  }
+
+  const updateBusinessExtraExpensesBlur = (field: string, value: string) => {
+    handleNumberBlur(value, (formatted) => {
+      setBusinessExtraExpenses({ ...businessExtraExpenses, [field]: formatted })
+    })
   }
 
   // 保存數據到 localStorage（保存時移除千分位號）
@@ -307,6 +380,7 @@ export default function Step2Page() {
                   placeholder="100000"
                   value={availableSavings}
                   onChange={(e) => handleNumberChange(e.target.value, setAvailableSavings)}
+                  onBlur={(e) => handleNumberBlur(e.target.value, setAvailableSavings)}
                   className="pl-12 rounded-lg"
                 />
               </div>
@@ -345,6 +419,7 @@ export default function Step2Page() {
                     placeholder="40000"
                           value={fixedIncome.salary}
                           onChange={(e) => updateFixedIncome("salary", e.target.value)}
+                          onBlur={(e) => updateFixedIncomeBlur("salary", e.target.value)}
                           className="pl-12 rounded-lg"
                         />
                       </div>
@@ -361,6 +436,7 @@ export default function Step2Page() {
                           placeholder="0"
                           value={fixedIncome.rent}
                           onChange={(e) => updateFixedIncome("rent", e.target.value)}
+                          onBlur={(e) => updateFixedIncomeBlur("rent", e.target.value)}
                           className="pl-12 rounded-lg"
                         />
                       </div>
@@ -439,6 +515,7 @@ export default function Step2Page() {
                           placeholder="0"
                           value={variableIncome.sideJob}
                           onChange={(e) => updateVariableIncome("sideJob", e.target.value)}
+                          onBlur={(e) => updateVariableIncomeBlur("sideJob", e.target.value)}
                           className="pl-12 rounded-lg"
                         />
                       </div>
@@ -546,6 +623,7 @@ export default function Step2Page() {
                     placeholder="15000"
                           value={fixedExpenses.housing}
                           onChange={(e) => updateFixedExpenses("housing", e.target.value)}
+                          onBlur={(e) => updateFixedExpensesBlur("housing", e.target.value)}
                           className="pl-12 rounded-lg"
                         />
                       </div>

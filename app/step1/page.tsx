@@ -39,8 +39,10 @@ export default function Step1Page() {
     // 移除所有非數字字符
     const numValue = value.replace(/\D/g, "")
     if (!numValue) return ""
-    // 轉換為數字並格式化
-    return parseInt(numValue).toLocaleString("zh-TW")
+    // 轉換為數字並格式化，使用 Number 而不是 parseInt 以避免精度問題
+    const num = Number(numValue)
+    if (isNaN(num)) return ""
+    return num.toLocaleString("zh-TW")
   }
 
   // 解析格式化後的數字（移除千分位號）
@@ -48,15 +50,45 @@ export default function Step1Page() {
     return value.replace(/,/g, "")
   }
 
-  // 處理金額輸入變化，自動格式化
+  // 處理金額輸入變化，輸入時保持原始數字
   const handleCostChange = (id: string, value: string) => {
+    // 只允許數字和逗號輸入
+    const cleaned = value.replace(/[^\d,]/g, "")
+    // 移除逗號，只保留數字
+    const numValue = cleaned.replace(/,/g, "")
+    // 如果為空，直接設置為空字符串
+    if (!numValue) {
+      updateWish(id, "cost", "")
+      return
+    }
+    // 輸入時不格式化，保持原始數字
+    updateWish(id, "cost", numValue)
+  }
+
+  // 處理金額失去焦點時格式化
+  const handleCostBlur = (id: string, value: string) => {
     const parsed = parseNumber(value)
     const formatted = formatNumber(parsed)
     updateWish(id, "cost", formatted)
   }
 
-  // 處理已完成金額輸入變化，自動格式化
+  // 處理已完成金額輸入變化，輸入時保持原始數字
   const handleCurrentSavedChange = (id: string, value: string) => {
+    // 只允許數字和逗號輸入
+    const cleaned = value.replace(/[^\d,]/g, "")
+    // 移除逗號，只保留數字
+    const numValue = cleaned.replace(/,/g, "")
+    // 如果為空，直接設置為空字符串
+    if (!numValue) {
+      updateWish(id, "currentSaved", "")
+      return
+    }
+    // 輸入時不格式化，保持原始數字
+    updateWish(id, "currentSaved", numValue)
+  }
+
+  // 處理已完成金額失去焦點時格式化
+  const handleCurrentSavedBlur = (id: string, value: string) => {
     const parsed = parseNumber(value)
     const formatted = formatNumber(parsed)
     updateWish(id, "currentSaved", formatted)
@@ -243,6 +275,7 @@ export default function Step1Page() {
                           placeholder="50,000"
                           value={wish.cost}
                           onChange={(e) => handleCostChange(wish.id, e.target.value)}
+                          onBlur={(e) => handleCostBlur(wish.id, e.target.value)}
                           className="pl-12 rounded-lg"
                         />
                       </div>
@@ -259,6 +292,7 @@ export default function Step1Page() {
                           placeholder="0"
                           value={wish.currentSaved || ""}
                           onChange={(e) => handleCurrentSavedChange(wish.id, e.target.value)}
+                          onBlur={(e) => handleCurrentSavedBlur(wish.id, e.target.value)}
                           className="pl-12 rounded-lg"
                         />
                       </div>

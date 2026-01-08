@@ -6,12 +6,37 @@ import { Button } from "@/components/ui/button"
 import { Card } from "@/components/ui/card"
 import { Progress } from "@/components/ui/progress"
 import { Shield, Umbrella, Heart, AlertCircle, CheckCircle2, PiggyBank, Wallet } from "lucide-react"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 
 export default function Step5Page() {
   const [availableSavings, setAvailableSavings] = useState(0)
   const [monthlyExpenses, setMonthlyExpenses] = useState(33000) // 預設值
-  const recommendedMonths = 6
+  const [recommendedMonths, setRecommendedMonths] = useState(6) // 預設6個月
+  
+  // 從 localStorage 讀取建議準備月數
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      const savedMonths = localStorage.getItem("recommendedMonths")
+      if (savedMonths) {
+        const months = parseInt(savedMonths)
+        if (months >= 3 && months <= 6) {
+          setRecommendedMonths(months)
+        }
+      }
+    }
+  }, [])
+
   const targetAmount = monthlyExpenses * recommendedMonths
+
+  // 處理月數選擇變化
+  const handleMonthsChange = (value: string) => {
+    const months = parseInt(value)
+    setRecommendedMonths(months)
+    // 保存到 localStorage
+    if (typeof window !== "undefined") {
+      localStorage.setItem("recommendedMonths", months.toString())
+    }
+  }
 
   // 從 localStorage 讀取可動用存款金額和每月支出
   useEffect(() => {
@@ -178,8 +203,18 @@ export default function Step5Page() {
               <p className="text-lg font-semibold text-foreground">NT$ {monthlyExpenses.toLocaleString()}</p>
             </div>
             <div className="p-4 rounded-lg bg-card/60 backdrop-blur">
-              <p className="text-xs text-muted-foreground mb-1">建議準備月數</p>
-              <p className="text-lg font-semibold text-foreground">{recommendedMonths} 個月</p>
+              <p className="text-xs text-muted-foreground mb-2">建議準備月數</p>
+              <Select value={recommendedMonths.toString()} onValueChange={handleMonthsChange}>
+                <SelectTrigger className="w-full">
+                  <SelectValue placeholder="選擇月數" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="3">3 個月</SelectItem>
+                  <SelectItem value="4">4 個月</SelectItem>
+                  <SelectItem value="5">5 個月</SelectItem>
+                  <SelectItem value="6">6 個月</SelectItem>
+                </SelectContent>
+              </Select>
             </div>
             <div className="p-4 rounded-lg bg-primary/10 backdrop-blur border border-primary/20">
               <p className="text-xs text-primary font-medium mb-1">還需要</p>
