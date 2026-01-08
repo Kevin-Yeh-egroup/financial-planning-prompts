@@ -25,9 +25,12 @@ import {
   Edit,
   Save,
   X,
+  Trash2,
+  CheckSquare,
 } from "lucide-react"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Input } from "@/components/ui/input"
+import { Checkbox } from "@/components/ui/checkbox"
 import { Label } from "@/components/ui/label"
 import {
   Dialog,
@@ -423,17 +426,30 @@ const generateMonthlyRecords = (year: number, month: number): AccountingRecord[]
   return records
 }
 
-// 生成12個月的數據（2024年1-12月）
-const generate12MonthsData = (): AccountingRecord[] => {
+// 生成2025年12月15日到2026年1月7日的模擬數據（demo用）
+const generateDemoData = (): AccountingRecord[] => {
   const allRecords: AccountingRecord[] = []
-  for (let month = 1; month <= 12; month++) {
-    const monthlyRecords = generateMonthlyRecords(2024, month)
-    allRecords.push(...monthlyRecords)
-  }
+  
+  // 2025年12月15-31日的數據
+  const dec2025Records = generateMonthlyRecords(2025, 12)
+  const dec2025Filtered = dec2025Records.filter((record) => {
+    const day = parseInt(record.date.split("-")[2])
+    return day >= 15 // 只保留15日及之後的記錄
+  })
+  allRecords.push(...dec2025Filtered)
+  
+  // 2026年1月1-7日的數據
+  const jan2026Records = generateMonthlyRecords(2026, 1)
+  const jan2026Filtered = jan2026Records.filter((record) => {
+    const day = parseInt(record.date.split("-")[2])
+    return day <= 7 // 只保留1-7日的記錄
+  })
+  allRecords.push(...jan2026Filtered)
+  
   return allRecords
 }
 
-const decemberSampleData = generate12MonthsData()
+const decemberSampleData = generateDemoData()
 
 export default function RecordsPage() {
   const router = useRouter()
@@ -443,6 +459,9 @@ export default function RecordsPage() {
   const [searchText, setSearchText] = useState<string>("")
   const [filterCategory, setFilterCategory] = useState<string>("all")
   const [filterSubCategory, setFilterSubCategory] = useState<string>("all")
+  
+  // 批次刪除相關狀態
+  const [selectedRecordIds, setSelectedRecordIds] = useState<Set<string>>(new Set())
   
   // 新增夢想相關狀態
   const [isAddWishDialogOpen, setIsAddWishDialogOpen] = useState(false)
@@ -475,9 +494,35 @@ export default function RecordsPage() {
   const [editingEmergencyAmount, setEditingEmergencyAmount] = useState(0)
   const [editingRecordData, setEditingRecordData] = useState<AccountingRecord | null>(null)
   
-  // 追蹤已通知的夢想（避免重複通知）
+  // 追蹤已通知的夢想（避免重複通知）- 從 localStorage 讀取
   const [notifiedCompletedWishes, setNotifiedCompletedWishes] = useState<Set<string>>(new Set())
   const [notifiedNearCompleteWishes, setNotifiedNearCompleteWishes] = useState<Set<string>>(new Set())
+  
+  // 從 localStorage 讀取已通知的夢想狀態
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      const savedCompleted = localStorage.getItem("notifiedCompletedWishes")
+      const savedNearComplete = localStorage.getItem("notifiedNearCompleteWishes")
+      
+      if (savedCompleted) {
+        try {
+          const parsed = JSON.parse(savedCompleted)
+          setNotifiedCompletedWishes(new Set(parsed))
+        } catch (e) {
+          console.error("Error parsing notifiedCompletedWishes", e)
+        }
+      }
+      
+      if (savedNearComplete) {
+        try {
+          const parsed = JSON.parse(savedNearComplete)
+          setNotifiedNearCompleteWishes(new Set(parsed))
+        } catch (e) {
+          console.error("Error parsing notifiedNearCompleteWishes", e)
+        }
+      }
+    }
+  }, [])
   
   // 每日回顧時間設定
   const [reminderTime, setReminderTime] = useState<string>("20:00")
@@ -615,67 +660,87 @@ export default function RecordsPage() {
     const timestamp = Date.now()
     const currentDate = new Date().toISOString().split("T")[0] // 當下時間的日期
     
-    // 如果 useCurrentDate 為 true，使用當下時間的日期；否則使用 sampleAccountingData 中的日期
-    const newRecords = sampleAccountingData.map((record, index) => ({
-      ...record,
-      id: `${timestamp}-${index}`,
-      date: useCurrentDate ? currentDate : record.date, // 使用當下時間的日期
-    }))
+    let newRecords: AccountingRecord[] = []
     
-    // 添加新記錄（案例數據）
+    if (useCurrentDate) {
+      // 語音輸入：只添加當天的記錄（簡化版，只添加一筆示例記錄）
+      // 實際應用中，這裡應該根據語音內容解析出多筆記錄
+      newRecords = [
+        {
+          id: `${timestamp}-0`,
+          date: currentDate,
+          description: "記帳記錄",
+          amount: 0,
+          type: "expense" as const,
+          category: "生活支出",
+          subCategory: "其他",
+        }
+      ]
+    } else {
+      // 上傳帳務資訊：使用 sampleAccountingData 中的所有記錄
+      newRecords = sampleAccountingData.map((record, index) => ({
+        ...record,
+        id: `${timestamp}-${index}`,
+        date: record.date,
+      }))
+    }
+    
+    // 添加新記錄
     allRecords = [...allRecords, ...newRecords]
     
     // 保存到 localStorage
     localStorage.setItem("accountingRecords", JSON.stringify(allRecords))
     setRecords(allRecords)
     
-    // 更新願望的已完成金額（如果有相關儲蓄）
-    const wishesStr = localStorage.getItem("wishes")
-    if (wishesStr) {
-      try {
-        const wishes = JSON.parse(wishesStr)
-        const updatedWishes = wishes.map((wish: any) => {
-          const relatedSavings = sampleAccountingData.filter(
-            (r) => r.description.includes(wish.name) && r.subCategory === "儲蓄"
-          )
-          if (relatedSavings.length > 0) {
-            const additionalAmount = relatedSavings.reduce((sum, r) => sum + r.amount, 0)
-            const currentSaved = parseFloat(wish.currentSaved ? wish.currentSaved.replace(/,/g, "") : "0")
-            const newSaved = currentSaved + additionalAmount
-            return {
-              ...wish,
-              currentSaved: newSaved.toLocaleString("zh-TW"),
-            }
-          }
-          return wish
-        })
-        localStorage.setItem("wishes", JSON.stringify(updatedWishes))
-        setWishes(updatedWishes)
-      } catch (e) {
-        console.error("Error updating wishes", e)
-      }
-    }
-    
-    // 更新可動用存款（如果有緊急預備金儲蓄）
-    const emergencySavings = sampleAccountingData.filter(
-      (r) => r.description.includes("緊急預備金") && r.subCategory === "儲蓄"
-    )
-    if (emergencySavings.length > 0) {
-      const additionalAmount = emergencySavings.reduce((sum, r) => sum + r.amount, 0)
-      const currentSavings = parseFloat(localStorage.getItem("availableSavings") || "0")
-      const newSavings = currentSavings + additionalAmount
-      localStorage.setItem("availableSavings", newSavings.toString())
-      setAvailableSavings(newSavings)
-      
-      // 同步更新 step2Data 中的 availableSavings
-      const step2DataStr = localStorage.getItem("step2Data")
-      if (step2DataStr) {
+    // 更新願望的已完成金額（如果有相關儲蓄）- 只處理上傳的情況
+    if (!useCurrentDate) {
+      const wishesStr = localStorage.getItem("wishes")
+      if (wishesStr) {
         try {
-          const step2Data = JSON.parse(step2DataStr)
-          step2Data.availableSavings = newSavings.toString()
-          localStorage.setItem("step2Data", JSON.stringify(step2Data))
+          const wishes = JSON.parse(wishesStr)
+          const updatedWishes = wishes.map((wish: any) => {
+            const relatedSavings = sampleAccountingData.filter(
+              (r) => r.description.includes(wish.name) && r.subCategory === "儲蓄"
+            )
+            if (relatedSavings.length > 0) {
+              const additionalAmount = relatedSavings.reduce((sum, r) => sum + r.amount, 0)
+              const currentSaved = parseFloat(wish.currentSaved ? wish.currentSaved.replace(/,/g, "") : "0")
+              const newSaved = currentSaved + additionalAmount
+              return {
+                ...wish,
+                currentSaved: newSaved.toLocaleString("zh-TW"),
+              }
+            }
+            return wish
+          })
+          localStorage.setItem("wishes", JSON.stringify(updatedWishes))
+          setWishes(updatedWishes)
         } catch (e) {
-          console.error("Error updating step2Data", e)
+          console.error("Error updating wishes", e)
+        }
+      }
+      
+      // 更新可動用存款（如果有緊急預備金儲蓄）
+      const emergencySavings = sampleAccountingData.filter(
+        (r) => r.description.includes("緊急預備金") && r.subCategory === "儲蓄"
+      )
+      if (emergencySavings.length > 0) {
+        const additionalAmount = emergencySavings.reduce((sum, r) => sum + r.amount, 0)
+        const currentSavings = parseFloat(localStorage.getItem("availableSavings") || "0")
+        const newSavings = currentSavings + additionalAmount
+        localStorage.setItem("availableSavings", newSavings.toString())
+        setAvailableSavings(newSavings)
+        
+        // 同步更新 step2Data 中的 availableSavings
+        const step2DataStr = localStorage.getItem("step2Data")
+        if (step2DataStr) {
+          try {
+            const step2Data = JSON.parse(step2DataStr)
+            step2Data.availableSavings = newSavings.toString()
+            localStorage.setItem("step2Data", JSON.stringify(step2Data))
+          } catch (e) {
+            console.error("Error updating step2Data", e)
+          }
         }
       }
     }
@@ -719,43 +784,15 @@ export default function RecordsPage() {
             return record
           })
           
-          // 檢查是否有12個月的完整數據，如果沒有則添加
-          const uniqueMonths = new Set(
-            recordsWithUniqueIds.map((r: AccountingRecord) => {
-              const recordMonth = new Date(r.date).toLocaleDateString("zh-TW", { year: "numeric", month: "2-digit" })
-              return recordMonth
-            })
-          )
-          
-          let finalRecords = recordsWithUniqueIds
-          // 如果少於12個月的數據，則添加完整的12個月數據
-          if (uniqueMonths.size < 12) {
-            const allMonthsRecords = decemberSampleData.map((record, index) => ({
-              ...record,
-              id: record.id || `dec-${Date.now()}-${index}`,
-            }))
-            // 合併現有記錄和新記錄，避免重複
-            const existingDates = new Set(recordsWithUniqueIds.map((r: AccountingRecord) => r.date))
-            const newRecords = allMonthsRecords.filter((r) => !existingDates.has(r.date))
-            finalRecords = [...recordsWithUniqueIds, ...newRecords]
-          }
-          
-          setRecords(finalRecords)
-          // 如果有修改，更新 localStorage
-          if (JSON.stringify(finalRecords) !== JSON.stringify(parsedRecords)) {
-            localStorage.setItem("accountingRecords", JSON.stringify(finalRecords))
-          }
+          // 不再自動添加demo數據，只使用實際的記帳記錄
+          setRecords(recordsWithUniqueIds)
         } catch (e) {
           console.error("Error parsing accounting records", e)
         }
       } else {
-        // 如果沒有記錄，初始化12個月數據
-        const allRecords = decemberSampleData.map((record, index) => ({
-          ...record,
-          id: record.id || `init-${index}`,
-        }))
-        localStorage.setItem("accountingRecords", JSON.stringify(allRecords))
-        setRecords(allRecords)
+        // 如果沒有記錄，初始化為空數組（不自動添加demo數據）
+        setRecords([])
+        localStorage.setItem("accountingRecords", JSON.stringify([]))
       }
 
       // 讀取願望數據
@@ -844,31 +881,39 @@ export default function RecordsPage() {
   }, [])
 
   // 計算統計數據
-  const filteredRecords = records.filter((record) => {
-    // 月份篩選
-    if (filterMonth !== "all") {
-      const recordMonth = new Date(record.date).toLocaleDateString("zh-TW", { year: "numeric", month: "2-digit" })
-      if (recordMonth !== filterMonth) return false
-    }
-    // 類型篩選
-    if (filterType !== "all") {
-      if (filterType === "income" && record.type !== "income") return false
-      if (filterType === "expense" && record.type !== "expense") return false
-    }
-    // 文字搜尋（描述）
-    if (searchText && !record.description.toLowerCase().includes(searchText.toLowerCase())) {
-      return false
-    }
-    // 主分類篩選
-    if (filterCategory !== "all" && record.category !== filterCategory) {
-      return false
-    }
-    // 子分類篩選
-    if (filterSubCategory !== "all" && record.subCategory !== filterSubCategory) {
-      return false
-    }
-    return true
-  })
+  const filteredRecords = records
+    .filter((record) => {
+      // 月份篩選
+      if (filterMonth !== "all") {
+        const recordMonth = new Date(record.date).toLocaleDateString("zh-TW", { year: "numeric", month: "2-digit" })
+        if (recordMonth !== filterMonth) return false
+      }
+      // 類型篩選
+      if (filterType !== "all") {
+        if (filterType === "income" && record.type !== "income") return false
+        if (filterType === "expense" && record.type !== "expense") return false
+      }
+      // 文字搜尋（描述）
+      if (searchText && !record.description.toLowerCase().includes(searchText.toLowerCase())) {
+        return false
+      }
+      // 主分類篩選
+      if (filterCategory !== "all" && record.category !== filterCategory) {
+        return false
+      }
+      // 子分類篩選
+      if (filterSubCategory !== "all" && record.subCategory !== filterSubCategory) {
+        return false
+      }
+      return true
+    })
+    // 按日期由近到遠排序（最新的在最上面）
+    .sort((a, b) => {
+      const dateA = new Date(a.date).getTime()
+      const dateB = new Date(b.date).getTime()
+      // 降序排列：日期較新的在前
+      return dateB - dateA
+    })
   
   // 獲取所有可用的主分類和子分類
   const availableCategories = Array.from(new Set(records.map((r) => r.category))).filter(Boolean).sort()
@@ -1005,20 +1050,33 @@ export default function RecordsPage() {
   // 計算夢想完成狀況（根據記帳記錄更新）
   const wishesWithProgress = wishes.map((wish) => {
     const targetAmount = parseFloat(wish.cost ? wish.cost.replace(/,/g, "") : "0")
-    const currentSaved = parseFloat(wish.currentSaved ? wish.currentSaved.replace(/,/g, "") : "0")
+    
+    // 獲取初始的 currentSaved（step1 中設定的初始值）
+    let initialSaved = 0
+    if (wish.id === "1" && wish.name === "日本家庭旅遊") {
+      initialSaved = 10000
+    } else if (wish.id === "2" && wish.name === "孩子才藝課程") {
+      initialSaved = 15000
+    } else {
+      // 其他夢想的初始值從 currentSaved 讀取
+      initialSaved = parseFloat(wish.currentSaved ? wish.currentSaved.replace(/,/g, "") : "0")
+    }
+    
     const completedDate = (wish as any).completedDate // 完成日期
     
     // 如果夢想已完成，不再從記帳記錄中累積儲蓄
     let additionalSaved = 0
     if (!completedDate) {
-      // 從記帳記錄中找出與此夢想相關的儲蓄記錄（只計算完成日期之前的記錄）
-      const relatedSavings = filteredRecords.filter(
+      // 從記帳記錄中找出與此夢想相關的儲蓄記錄（使用所有 records，不只是 filteredRecords）
+      const relatedSavings = records.filter(
         (r) => r.type === "expense" && r.subCategory === "儲蓄" && r.description.includes(wish.name)
       )
       additionalSaved = relatedSavings.reduce((sum, r) => sum + r.amount, 0)
     }
     
-    const totalSaved = currentSaved + additionalSaved
+    // 總儲蓄 = 初始值 + 記帳記錄中的儲蓄
+    // 如果記帳記錄被清空，additionalSaved 會是 0，totalSaved 會回到初始值
+    const totalSaved = initialSaved + additionalSaved
     const progress = targetAmount > 0 ? (totalSaved / targetAmount) * 100 : 0
     const stillNeeded = Math.max(0, targetAmount - totalSaved)
     const isCompleted = progress >= 100 || !!completedDate
@@ -1097,13 +1155,20 @@ export default function RecordsPage() {
     }
   }, [])
 
-  // 檢測並顯示夢想完成通知
+  // 檢測並顯示夢想完成通知（只在狀態真正改變時觸發，不在一進系統就提醒）
   useEffect(() => {
+    // 從 localStorage 讀取已通知的狀態（確保使用最新狀態）
+    const savedCompleted = localStorage.getItem("notifiedCompletedWishes")
+    const savedNearComplete = localStorage.getItem("notifiedNearCompleteWishes")
+    const savedCompletedSet = savedCompleted ? new Set(JSON.parse(savedCompleted)) : new Set<string>()
+    const savedNearCompleteSet = savedNearComplete ? new Set(JSON.parse(savedNearComplete)) : new Set<string>()
+    
+    // 只在 wishesWithProgress 真正改變時檢查
     wishesWithProgress.forEach((wish) => {
       const wishId = wish.wishId
       
-      // 夢想已完成
-      if (wish.isCompleted && !notifiedCompletedWishes.has(wishId)) {
+      // 夢想已完成 - 只在真正完成且尚未通知時觸發一次
+      if (wish.isCompleted && !savedCompletedSet.has(wishId)) {
         const message = `「${wish.name}」已經完成囉！`
         toast.success(
           <div className="flex items-center gap-3">
@@ -1122,11 +1187,14 @@ export default function RecordsPage() {
           message,
           type: "dream_completed",
         })
-        setNotifiedCompletedWishes((prev) => new Set(prev).add(wishId))
+        const newSet = new Set(savedCompletedSet).add(wishId)
+        setNotifiedCompletedWishes(newSet)
+        // 保存到 localStorage
+        localStorage.setItem("notifiedCompletedWishes", JSON.stringify(Array.from(newSet)))
       }
       
-      // 夢想即將完成（還剩一期就完成）
-      if (wish.isNearComplete && !notifiedNearCompleteWishes.has(wishId) && !wish.isCompleted) {
+      // 夢想即將完成（還剩一期就完成）- 只在真正接近完成且尚未通知時觸發一次
+      if (wish.isNearComplete && !savedNearCompleteSet.has(wishId) && !wish.isCompleted) {
         const message = `「${wish.name}」還需要 NT$ ${wish.stillNeeded.toLocaleString()} 就完成囉！`
         toast.info(
           <div className="flex items-center gap-3">
@@ -1145,10 +1213,13 @@ export default function RecordsPage() {
           message,
           type: "dream_near_complete",
         })
-        setNotifiedNearCompleteWishes((prev) => new Set(prev).add(wishId))
+        const newSet = new Set(savedNearCompleteSet).add(wishId)
+        setNotifiedNearCompleteWishes(newSet)
+        // 保存到 localStorage
+        localStorage.setItem("notifiedNearCompleteWishes", JSON.stringify(Array.from(newSet)))
       }
     })
-  }, [wishesWithProgress, notifiedCompletedWishes, notifiedNearCompleteWishes])
+  }, [wishesWithProgress]) // 只依賴 wishesWithProgress，確保只在夢想狀態改變時檢查
 
   // 計算緊急預備金狀況（根據記帳記錄更新）
   const emergencySavings = filteredRecords
@@ -1600,9 +1671,9 @@ export default function RecordsPage() {
           </Card>
 
           {/* 歷史趨勢圖 */}
-          {monthlyData.length > 0 && (
-            <Card className="p-6">
-              <h2 className="text-xl font-semibold text-foreground mb-6">歷史趨勢圖</h2>
+          <Card className="p-6">
+            <h2 className="text-xl font-semibold text-foreground mb-6">歷史趨勢圖</h2>
+            {monthlyData.length > 0 ? (
               <ChartContainer config={chartConfig} className="h-[400px]">
                 <LineChart data={monthlyData}>
                   <CartesianGrid strokeDasharray="3 3" />
@@ -1651,8 +1722,12 @@ export default function RecordsPage() {
                   />
                 </LineChart>
               </ChartContainer>
-            </Card>
-          )}
+            ) : (
+              <div className="h-[400px] flex items-center justify-center border border-border rounded-lg bg-muted/20">
+                <p className="text-muted-foreground">尚無歷史數據</p>
+              </div>
+            )}
+          </Card>
         </div>
 
         {/* 當月統計 */}
@@ -2653,6 +2728,102 @@ export default function RecordsPage() {
             </div>
           </div>
 
+          {/* 批次操作欄 */}
+          {filteredRecords.length > 0 && (
+            <div className="flex items-center justify-between mb-4 p-3 rounded-lg bg-accent/30 border border-border">
+              <div className="flex items-center gap-3">
+                <Checkbox
+                  checked={selectedRecordIds.size > 0 && selectedRecordIds.size === filteredRecords.length}
+                  onCheckedChange={(checked) => {
+                    if (checked) {
+                      // 全選
+                      setSelectedRecordIds(new Set(filteredRecords.map((r) => r.id)))
+                    } else {
+                      // 取消全選
+                      setSelectedRecordIds(new Set())
+                    }
+                  }}
+                />
+                <span className="text-sm text-muted-foreground">
+                  已選擇 {selectedRecordIds.size} 筆記錄
+                </span>
+              </div>
+              {selectedRecordIds.size > 0 && (
+                <Button
+                  variant="destructive"
+                  size="sm"
+                  onClick={() => {
+                    // 批次刪除
+                    const updatedRecords = records.filter((r) => !selectedRecordIds.has(r.id))
+                    localStorage.setItem("accountingRecords", JSON.stringify(updatedRecords))
+                    setRecords(updatedRecords)
+                    setSelectedRecordIds(new Set())
+                    
+                    // 如果刪除的記錄中有儲蓄相關的，需要更新願望和緊急預備金
+                    const deletedRecords = records.filter((r) => selectedRecordIds.has(r.id))
+                    const hasSavings = deletedRecords.some((r) => r.subCategory === "儲蓄")
+                    
+                    if (hasSavings) {
+                      // 更新願望的已完成金額
+                      const wishesStr = localStorage.getItem("wishes")
+                      if (wishesStr) {
+                        try {
+                          const wishes = JSON.parse(wishesStr)
+                          const updatedWishes = wishes.map((wish: any) => {
+                            const relatedSavings = deletedRecords.filter(
+                              (r) => r.description.includes(wish.name) && r.subCategory === "儲蓄"
+                            )
+                            if (relatedSavings.length > 0) {
+                              const subtractAmount = relatedSavings.reduce((sum, r) => sum + r.amount, 0)
+                              const currentSaved = parseFloat(wish.currentSaved ? wish.currentSaved.replace(/,/g, "") : "0")
+                              const newSaved = Math.max(0, currentSaved - subtractAmount)
+                              return {
+                                ...wish,
+                                currentSaved: newSaved.toLocaleString("zh-TW"),
+                              }
+                            }
+                            return wish
+                          })
+                          localStorage.setItem("wishes", JSON.stringify(updatedWishes))
+                          setWishes(updatedWishes)
+                        } catch (e) {
+                          console.error("Error updating wishes", e)
+                        }
+                      }
+                      
+                      // 更新可動用存款（如果有緊急預備金儲蓄）
+                      const emergencySavings = deletedRecords.filter(
+                        (r) => r.description.includes("緊急預備金") && r.subCategory === "儲蓄"
+                      )
+                      if (emergencySavings.length > 0) {
+                        const subtractAmount = emergencySavings.reduce((sum, r) => sum + r.amount, 0)
+                        const currentSavings = parseFloat(localStorage.getItem("availableSavings") || "0")
+                        const newSavings = Math.max(0, currentSavings - subtractAmount)
+                        localStorage.setItem("availableSavings", newSavings.toString())
+                        setAvailableSavings(newSavings)
+                        
+                        // 同步更新 step2Data
+                        const step2DataStr = localStorage.getItem("step2Data")
+                        if (step2DataStr) {
+                          try {
+                            const step2Data = JSON.parse(step2DataStr)
+                            step2Data.availableSavings = newSavings.toString()
+                            localStorage.setItem("step2Data", JSON.stringify(step2Data))
+                          } catch (e) {
+                            console.error("Error updating step2Data", e)
+                          }
+                        }
+                      }
+                    }
+                  }}
+                >
+                  <Trash2 className="w-4 h-4 mr-2" />
+                  批次刪除 ({selectedRecordIds.size})
+                </Button>
+              )}
+            </div>
+          )}
+
           {filteredRecords.length > 0 ? (
             <div className="space-y-2">
               {filteredRecords.map((record, index) => {
@@ -2662,10 +2833,30 @@ export default function RecordsPage() {
                 return (
                   <div
                     key={`${record.id}-${index}`}
-                    className="p-4 rounded-lg border border-border hover:bg-accent/20 transition-colors"
+                    className="p-4 rounded-lg border border-border hover:bg-accent/20 transition-colors flex items-start gap-3"
                   >
+                    {/* 勾選框 */}
+                    <div className="pt-1">
+                      <Checkbox
+                        checked={selectedRecordIds.has(record.id)}
+                        disabled={isEditing}
+                        onCheckedChange={(checked) => {
+                          if (!isEditing) {
+                            const newSelected = new Set(selectedRecordIds)
+                            if (checked) {
+                              newSelected.add(record.id)
+                            } else {
+                              newSelected.delete(record.id)
+                            }
+                            setSelectedRecordIds(newSelected)
+                          }
+                        }}
+                      />
+                    </div>
+                    
+                    <div className="flex-1">
                     {isEditing ? (
-                      <div className="space-y-3">
+                      <div className="space-y-3 w-full">
                         <div className="grid grid-cols-2 gap-3">
                           <div>
                             <Label htmlFor={`record-date-${record.id}`} className="text-xs">日期</Label>
@@ -2802,7 +2993,7 @@ export default function RecordsPage() {
                         </div>
                       </div>
                     ) : (
-                      <div className="flex items-center justify-between">
+                      <div className="flex items-center justify-between w-full">
                         <div className="flex-1">
                           <div className="flex items-center gap-3 mb-1">
                             <Calendar className="w-4 h-4 text-muted-foreground" />
@@ -2841,6 +3032,7 @@ export default function RecordsPage() {
                         </div>
                       </div>
                     )}
+                    </div>
                   </div>
                 )
               })}
