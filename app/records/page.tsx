@@ -647,14 +647,145 @@ export default function RecordsPage() {
   }, [datesWithRecords])
 
   // 處理記帳數據
+  // 解析語音轉錄內容為記帳記錄
+  const parseTranscriptionToRecords = (content: string, useCurrentDate: boolean = false): AccountingRecord[] => {
+    if (!content || content.trim() === "") return []
+    
+    const records: AccountingRecord[] = []
+    const today = new Date()
+    const todayStr = today.toISOString().split("T")[0]
+    const currentDate = useCurrentDate ? todayStr : todayStr
+    
+    // 解析日期關鍵詞
+    const parseDate = (text: string): string => {
+      if (useCurrentDate) {
+        // 如果指定使用當前日期，直接返回今天
+        return currentDate
+      }
+      if (text.includes("今天") || text.includes("今日")) {
+        return todayStr
+      } else if (text.includes("昨天") || text.includes("昨日")) {
+        const yesterday = new Date(today)
+        yesterday.setDate(yesterday.getDate() - 1)
+        return yesterday.toISOString().split("T")[0]
+      } else if (text.includes("前天")) {
+        const dayBefore = new Date(today)
+        dayBefore.setDate(dayBefore.getDate() - 2)
+        return dayBefore.toISOString().split("T")[0]
+      }
+      return useCurrentDate ? currentDate : todayStr
+    }
+    
+    // 識別分類
+    const categorize = (description: string, amount: number): { category: string; subCategory: string; type: "income" | "expense" } => {
+      const desc = description.toLowerCase()
+      
+      // 收入關鍵詞
+      if (desc.includes("收入") || desc.includes("薪資") || desc.includes("薪水") || desc.includes("工資")) {
+        if (desc.includes("生意") || desc.includes("營業") || desc.includes("銷售") || desc.includes("商品")) {
+          return { category: "生意收入", subCategory: "商品銷售收入", type: "income" }
+        }
+        return { category: "生活收入", subCategory: "薪資收入", type: "income" }
+      }
+      
+      // 支出關鍵詞
+      if (desc.includes("儲蓄")) {
+        if (desc.includes("緊急預備金")) {
+          return { category: "生活支出", subCategory: "儲蓄", type: "expense" }
+        }
+        // 檢查是否與夢想相關
+        const wishesStr = localStorage.getItem("wishes")
+        if (wishesStr) {
+          try {
+            const wishes = JSON.parse(wishesStr)
+            for (const wish of wishes) {
+              if (desc.includes(wish.name)) {
+                return { category: "生活支出", subCategory: "儲蓄", type: "expense" }
+              }
+            }
+          } catch (e) {
+            console.error("Error parsing wishes", e)
+          }
+        }
+        return { category: "生活支出", subCategory: "儲蓄", type: "expense" }
+      }
+      
+      if (desc.includes("原料") || desc.includes("包材") || desc.includes("材料") || desc.includes("成本")) {
+        if (desc.includes("原料")) {
+          return { category: "生意支出", subCategory: "原料", type: "expense" }
+        } else if (desc.includes("包材")) {
+          return { category: "生意支出", subCategory: "包材", type: "expense" }
+        }
+        return { category: "生意支出", subCategory: "其他", type: "expense" }
+      }
+      
+      if (desc.includes("房租") || desc.includes("租金") || desc.includes("房貸")) {
+        return { category: "生活支出", subCategory: "住", type: "expense" }
+      }
+      
+      if (desc.includes("買菜") || desc.includes("食物") || desc.includes("餐") || desc.includes("吃")) {
+        return { category: "生活支出", subCategory: "食", type: "expense" }
+      }
+      
+      if (desc.includes("電信") || desc.includes("手機") || desc.includes("月租") || desc.includes("電話")) {
+        return { category: "生活支出", subCategory: "電信", type: "expense" }
+      }
+      
+      // 預設為生活支出-其他
+      return { category: "生活支出", subCategory: "其他", type: "expense" }
+    }
+    
+    // 提取日期（如果 useCurrentDate 為 true，所有記錄都使用當天日期）
+    const date = useCurrentDate ? currentDate : parseDate(content)
+    
+    // 分割多筆交易（用逗號、頓號或句號分隔）
+    const transactions = content.split(/[，,、。]/).filter(t => t.trim() !== "")
+    
+    const timestamp = Date.now()
+    transactions.forEach((transaction, index) => {
+      const trimmed = transaction.trim()
+      if (!trimmed) return
+      
+      // 提取金額（數字+元）
+      const amountMatch = trimmed.match(/(\d+(?:,\d{3})*)\s*元/)
+      if (!amountMatch) return
+      
+      const amountStr = amountMatch[1].replace(/,/g, "")
+      const amount = parseInt(amountStr)
+      if (isNaN(amount) || amount <= 0) return
+      
+      // 提取描述（移除金額部分）
+      let description = trimmed.replace(/\d+(?:,\d{3})*\s*元/g, "").trim()
+      // 移除日期關鍵詞
+      description = description.replace(/(今天|昨天|前天|今日|昨日)/g, "").trim()
+      
+      if (!description) {
+        description = `記帳項目 ${index + 1}`
+      }
+      
+      // 分類
+      const { category, subCategory, type } = categorize(description, amount)
+      
+      // 生成唯一ID
+      const id = `record-${timestamp}-${index}-${Math.random().toString(36).substr(2, 9)}`
+      
+      records.push({
+        id,
+        date,
+        description,
+        amount,
+        type,
+        category,
+        subCategory,
+      })
+    })
+    
+    return records
+  }
+
   const processAccountingData = (content: string, useCurrentDate: boolean = false) => {
     const existingRecords = localStorage.getItem("accountingRecords")
     let allRecords = existingRecords ? JSON.parse(existingRecords) : []
-    
-    // 獲取現有記錄的最大 id，確保新記錄的 id 唯一
-    const maxId = allRecords.length > 0 
-      ? Math.max(...allRecords.map((r: AccountingRecord) => parseInt(r.id) || 0))
-      : 0
     
     // 為新記錄生成唯一的 id（使用時間戳 + 索引）
     const timestamp = Date.now()
@@ -663,19 +794,8 @@ export default function RecordsPage() {
     let newRecords: AccountingRecord[] = []
     
     if (useCurrentDate) {
-      // 語音輸入：只添加當天的記錄（簡化版，只添加一筆示例記錄）
-      // 實際應用中，這裡應該根據語音內容解析出多筆記錄
-      newRecords = [
-        {
-          id: `${timestamp}-0`,
-          date: currentDate,
-          description: "記帳記錄",
-          amount: 0,
-          type: "expense" as const,
-          category: "生活支出",
-          subCategory: "其他",
-        }
-      ]
+      // 語音輸入：解析語音轉錄內容為記帳記錄
+      newRecords = parseTranscriptionToRecords(content, true)
     } else {
       // 上傳帳務資訊：使用 sampleAccountingData 中的所有記錄
       newRecords = sampleAccountingData.map((record, index) => ({
@@ -760,9 +880,42 @@ export default function RecordsPage() {
   // 從 localStorage 讀取記帳記錄
   useEffect(() => {
     if (typeof window !== "undefined") {
-      // 清空所有記帳記錄，只保留 step1-step6 的實際數據
-      localStorage.setItem("accountingRecords", JSON.stringify([]))
-      setRecords([])
+      const saved = localStorage.getItem("accountingRecords")
+      if (saved) {
+        try {
+          const parsedRecords = JSON.parse(saved)
+          // 確保所有記錄都有唯一的 id
+          const recordsWithUniqueIds = parsedRecords.map((record: AccountingRecord, index: number) => {
+            // 如果 id 不存在或為空，生成一個新的唯一 id
+            if (!record.id || record.id.trim() === "") {
+              return {
+                ...record,
+                id: `record-${Date.now()}-${index}`,
+              }
+            }
+            // 檢查是否有重複的 id，如果有則生成新的
+            const duplicateCount = parsedRecords.slice(0, index).filter((r: AccountingRecord) => r.id === record.id).length
+            if (duplicateCount > 0) {
+              return {
+                ...record,
+                id: `${record.id}-${duplicateCount + 1}`,
+              }
+            }
+            return record
+          })
+          setRecords(recordsWithUniqueIds)
+          // 如果有所修改（例如添加唯一ID），更新localStorage
+          if (JSON.stringify(recordsWithUniqueIds) !== JSON.stringify(parsedRecords)) {
+            localStorage.setItem("accountingRecords", JSON.stringify(recordsWithUniqueIds))
+          }
+        } catch (e) {
+          console.error("Error parsing accounting records", e)
+          setRecords([])
+        }
+      } else {
+        // 如果沒有記錄，初始化為空數組
+        setRecords([])
+      }
 
       // 讀取願望數據
       const wishesStr = localStorage.getItem("wishes")
@@ -1770,6 +1923,7 @@ export default function RecordsPage() {
                   className={`p-6 h-auto flex flex-col items-center gap-3 hover:bg-primary/5 transition-all ${
                     recordingMethod === "voice" ? "border-primary bg-primary/5" : ""
                   }`}
+                  style={{ wordBreak: "break-word", textAlign: "center" }}
                   onClick={() => {
                     setRecordingMethod("voice")
                     setIsRecording(true)
@@ -1814,9 +1968,9 @@ export default function RecordsPage() {
                       <div className="absolute inset-0 rounded-full bg-primary/20 animate-ping" />
                     )}
                   </div>
-                  <div className="text-center">
-                    <p className="font-semibold text-foreground mb-1">語音輸入記帳</p>
-                    <p className="text-sm text-muted-foreground">
+                  <div className="text-center w-full px-2">
+                    <p className="font-semibold text-foreground mb-1 text-sm">語音輸入記帳</p>
+                    <p className="text-xs text-muted-foreground break-words leading-relaxed">
                       用說的就能記帳，自動辨識時間、內容與金額
                     </p>
                   </div>
@@ -1830,9 +1984,9 @@ export default function RecordsPage() {
                   onClick={() => setRecordingMethod("upload")}
                 >
                   <Upload className="w-8 h-8 text-primary" />
-                  <div className="text-center">
-                    <p className="font-semibold text-foreground mb-1">上傳帳務資訊</p>
-                    <p className="text-sm text-muted-foreground">
+                  <div className="text-center w-full px-2">
+                    <p className="font-semibold text-foreground mb-1 text-sm">上傳帳務資訊</p>
+                    <p className="text-xs text-muted-foreground break-words leading-relaxed">
                       上傳記帳訊息，自動分類整理成表格並分析
                     </p>
                   </div>

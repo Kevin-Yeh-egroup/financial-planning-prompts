@@ -110,18 +110,149 @@ export default function Step6Page() {
   const [transcriptionText, setTranscriptionText] = useState<string>("")
   const [recordingComplete, setRecordingComplete] = useState(false)
 
+  // 解析語音轉錄內容為記帳記錄
+  const parseTranscriptionToRecords = (content: string): any[] => {
+    if (!content || content.trim() === "") return []
+    
+    const records: any[] = []
+    const today = new Date()
+    const todayStr = today.toISOString().split("T")[0]
+    
+    // 語音輸入記帳時，所有記錄都使用當天日期
+    // 解析日期關鍵詞（語音輸入時統一使用今天）
+    const parseDate = (text: string): string => {
+      // 語音輸入記帳時，無論內容中說什麼日期，都使用當天日期
+      return todayStr
+    }
+    
+    // 識別分類
+    const categorize = (description: string, amount: number): { category: string; subCategory: string; type: "income" | "expense" } => {
+      const desc = description.toLowerCase()
+      
+      // 收入關鍵詞
+      if (desc.includes("收入") || desc.includes("薪資") || desc.includes("薪水") || desc.includes("工資")) {
+        if (desc.includes("生意") || desc.includes("營業") || desc.includes("銷售") || desc.includes("商品")) {
+          return { category: "生意收入", subCategory: "商品銷售收入", type: "income" }
+        }
+        return { category: "生活收入", subCategory: "薪資收入", type: "income" }
+      }
+      
+      // 支出關鍵詞
+      if (desc.includes("儲蓄")) {
+        if (desc.includes("緊急預備金")) {
+          return { category: "生活支出", subCategory: "儲蓄", type: "expense" }
+        }
+        // 檢查是否與夢想相關
+        const wishesStr = localStorage.getItem("wishes")
+        if (wishesStr) {
+          try {
+            const wishes = JSON.parse(wishesStr)
+            for (const wish of wishes) {
+              if (desc.includes(wish.name)) {
+                return { category: "生活支出", subCategory: "儲蓄", type: "expense" }
+              }
+            }
+          } catch (e) {
+            console.error("Error parsing wishes", e)
+          }
+        }
+        return { category: "生活支出", subCategory: "儲蓄", type: "expense" }
+      }
+      
+      if (desc.includes("原料") || desc.includes("包材") || desc.includes("材料") || desc.includes("成本")) {
+        if (desc.includes("原料")) {
+          return { category: "生意支出", subCategory: "原料", type: "expense" }
+        } else if (desc.includes("包材")) {
+          return { category: "生意支出", subCategory: "包材", type: "expense" }
+        }
+        return { category: "生意支出", subCategory: "其他", type: "expense" }
+      }
+      
+      if (desc.includes("房租") || desc.includes("租金") || desc.includes("房貸")) {
+        return { category: "生活支出", subCategory: "住", type: "expense" }
+      }
+      
+      if (desc.includes("買菜") || desc.includes("食物") || desc.includes("餐") || desc.includes("吃")) {
+        return { category: "生活支出", subCategory: "食", type: "expense" }
+      }
+      
+      if (desc.includes("電信") || desc.includes("手機") || desc.includes("月租") || desc.includes("電話")) {
+        return { category: "生活支出", subCategory: "電信", type: "expense" }
+      }
+      
+      // 預設為生活支出-其他
+      return { category: "生活支出", subCategory: "其他", type: "expense" }
+    }
+    
+    // 提取日期
+    const date = parseDate(content)
+    
+    // 分割多筆交易（用逗號、頓號或句號分隔）
+    const transactions = content.split(/[，,、。]/).filter(t => t.trim() !== "")
+    
+    transactions.forEach((transaction, index) => {
+      const trimmed = transaction.trim()
+      if (!trimmed) return
+      
+      // 提取金額（數字+元）
+      const amountMatch = trimmed.match(/(\d+(?:,\d{3})*)\s*元/)
+      if (!amountMatch) return
+      
+      const amountStr = amountMatch[1].replace(/,/g, "")
+      const amount = parseInt(amountStr)
+      if (isNaN(amount) || amount <= 0) return
+      
+      // 提取描述（移除金額部分）
+      let description = trimmed.replace(/\d+(?:,\d{3})*\s*元/g, "").trim()
+      // 移除日期關鍵詞
+      description = description.replace(/(今天|昨天|前天|今日|昨日)/g, "").trim()
+      
+      if (!description) {
+        description = `記帳項目 ${index + 1}`
+      }
+      
+      // 分類
+      const { category, subCategory, type } = categorize(description, amount)
+      
+      // 生成唯一ID
+      const id = `record-${Date.now()}-${index}-${Math.random().toString(36).substr(2, 9)}`
+      
+      records.push({
+        id,
+        date,
+        description,
+        amount,
+        type,
+        category,
+        subCategory,
+      })
+    })
+    
+    return records
+  }
+
   // 處理記帳數據
   const processAccountingData = (content: string) => {
-    // 這裡可以添加實際的 AI 分類邏輯
-    // 目前先使用案例數據
-    const existingRecords = localStorage.getItem("accountingRecords")
-    let allRecords = existingRecords ? JSON.parse(existingRecords) : []
+    // 解析語音轉錄內容為記帳記錄
+    const newRecords = parseTranscriptionToRecords(content)
     
-    // 添加新記錄（案例數據）
-    allRecords = [...allRecords, ...sampleAccountingData]
+    if (newRecords.length === 0) {
+      // 如果沒有解析到記錄，使用案例數據作為備用
+      const existingRecords = localStorage.getItem("accountingRecords")
+      let allRecords = existingRecords ? JSON.parse(existingRecords) : []
+      allRecords = [...allRecords, ...sampleAccountingData]
+      localStorage.setItem("accountingRecords", JSON.stringify(allRecords))
+    } else {
+      // 使用解析後的記錄
+      const existingRecords = localStorage.getItem("accountingRecords")
+      let allRecords = existingRecords ? JSON.parse(existingRecords) : []
+      allRecords = [...allRecords, ...newRecords]
+      
+      // 保存到 localStorage
+      localStorage.setItem("accountingRecords", JSON.stringify(allRecords))
+    }
     
-    // 保存到 localStorage
-    localStorage.setItem("accountingRecords", JSON.stringify(allRecords))
+    const recordsToProcess = newRecords.length > 0 ? newRecords : sampleAccountingData
     
     // 更新願望的已完成金額（如果有相關儲蓄）
     const wishesStr = localStorage.getItem("wishes")
@@ -129,7 +260,7 @@ export default function Step6Page() {
       try {
         const wishes = JSON.parse(wishesStr)
         const updatedWishes = wishes.map((wish: any) => {
-          const relatedSavings = sampleAccountingData.filter(
+          const relatedSavings = recordsToProcess.filter(
             (r) => r.description.includes(wish.name) && r.subCategory === "儲蓄"
           )
           if (relatedSavings.length > 0) {
@@ -150,7 +281,7 @@ export default function Step6Page() {
     }
     
     // 更新可動用存款（如果有緊急預備金儲蓄）
-    const emergencySavings = sampleAccountingData.filter(
+    const emergencySavings = recordsToProcess.filter(
       (r) => r.description.includes("緊急預備金") && r.subCategory === "儲蓄"
     )
     if (emergencySavings.length > 0) {
