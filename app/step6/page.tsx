@@ -156,7 +156,20 @@ export default function Step6Page() {
     if (emergencySavings.length > 0) {
       const additionalAmount = emergencySavings.reduce((sum, r) => sum + r.amount, 0)
       const currentSavings = parseFloat(localStorage.getItem("availableSavings") || "0")
-      localStorage.setItem("availableSavings", (currentSavings + additionalAmount).toString())
+      const newSavings = currentSavings + additionalAmount
+      localStorage.setItem("availableSavings", newSavings.toString())
+      
+      // 同步更新 step2Data 中的 availableSavings
+      const step2DataStr = localStorage.getItem("step2Data")
+      if (step2DataStr) {
+        try {
+          const step2Data = JSON.parse(step2DataStr)
+          step2Data.availableSavings = newSavings.toString()
+          localStorage.setItem("step2Data", JSON.stringify(step2Data))
+        } catch (e) {
+          console.error("Error updating step2Data", e)
+        }
+      }
     }
     
     setUploadSuccess(true)

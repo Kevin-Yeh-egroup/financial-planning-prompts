@@ -9,15 +9,82 @@ import { Shield, Umbrella, Heart, AlertCircle, CheckCircle2, PiggyBank, Wallet }
 
 export default function Step5Page() {
   const [availableSavings, setAvailableSavings] = useState(0)
-  const monthlyExpenses = 33000
+  const [monthlyExpenses, setMonthlyExpenses] = useState(33000) // 預設值
   const recommendedMonths = 6
   const targetAmount = monthlyExpenses * recommendedMonths
 
-  // 從 localStorage 讀取可動用存款金額
+  // 從 localStorage 讀取可動用存款金額和每月支出
   useEffect(() => {
     const saved = localStorage.getItem("availableSavings")
     if (saved) {
       setAvailableSavings(parseFloat(saved) || 0)
+    }
+
+    // 從 step2Data 計算每月支出
+    const step2DataStr = localStorage.getItem("step2Data")
+    if (step2DataStr) {
+      try {
+        const step2Data = JSON.parse(step2DataStr)
+        const fixedExpenses = step2Data.fixedExpenses || {}
+        const variableExpenses = step2Data.variableExpenses || {}
+        const businessVariableExpenses = step2Data.hasBusiness ? (step2Data.businessVariableExpenses || {}) : {}
+        const businessFixedExpenses = step2Data.hasBusiness ? (step2Data.businessFixedExpenses || {}) : {}
+        const businessExtraExpenses = step2Data.hasBusiness ? (step2Data.businessExtraExpenses || {}) : {}
+
+        const totalFixedExpenses =
+          parseFloat(fixedExpenses.housing || "0") +
+          parseFloat(fixedExpenses.telecom || "0") +
+          parseFloat(fixedExpenses.repayment || "0") +
+          parseFloat(fixedExpenses.insurance || "0") +
+          parseFloat(fixedExpenses.savings || "0")
+
+        const totalVariableExpenses =
+          parseFloat(variableExpenses.food || "0") +
+          parseFloat(variableExpenses.clothing || "0") +
+          parseFloat(variableExpenses.transportation || "0") +
+          parseFloat(variableExpenses.education || "0") +
+          parseFloat(variableExpenses.entertainment || "0") +
+          parseFloat(variableExpenses.medical || "0") +
+          parseFloat(variableExpenses.other || "0")
+
+        const totalBusinessFixedExpenses = step2Data.hasBusiness
+          ? parseFloat(businessFixedExpenses.rent || "0") +
+            parseFloat(businessFixedExpenses.personnel || "0") +
+            parseFloat(businessFixedExpenses.utilities || "0") +
+            parseFloat(businessFixedExpenses.gas || "0") +
+            parseFloat(businessFixedExpenses.communication || "0") +
+            parseFloat(businessFixedExpenses.repayment || "0") +
+            parseFloat(businessFixedExpenses.other || "0")
+          : 0
+
+        const totalBusinessVariableExpenses = step2Data.hasBusiness
+          ? parseFloat(businessVariableExpenses.materials || "0") +
+            parseFloat(businessVariableExpenses.packaging || "0") +
+            parseFloat(businessVariableExpenses.supplies || "0") +
+            parseFloat(businessVariableExpenses.shipping || "0") +
+            parseFloat(businessVariableExpenses.other || "0")
+          : 0
+
+        const totalBusinessExtraExpenses = step2Data.hasBusiness
+          ? parseFloat(businessExtraExpenses.equipment || "0") +
+            parseFloat(businessExtraExpenses.repair || "0") +
+            parseFloat(businessExtraExpenses.marketing || "0") +
+            parseFloat(businessExtraExpenses.other || "0")
+          : 0
+
+        const totalExpenses =
+          totalFixedExpenses +
+          totalVariableExpenses +
+          totalBusinessFixedExpenses +
+          totalBusinessVariableExpenses +
+          totalBusinessExtraExpenses
+
+        if (totalExpenses > 0) {
+          setMonthlyExpenses(totalExpenses)
+        }
+      } catch (e) {
+        console.error("Error parsing step2Data in step5", e)
+      }
     }
   }, [])
 
