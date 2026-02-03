@@ -288,9 +288,9 @@ export default function Step5Page() {
           <Link href="/step4">
             <Button variant="ghost">返回</Button>
           </Link>
-          <Link href="/step6">
+          <Link href="/">
             <Button size="lg" className="px-8 py-6 rounded-xl">
-              完成我的家庭財務整理
+              完成並回到首頁
             </Button>
           </Link>
         </div>
